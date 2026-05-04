@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, Command, EventEmitter, Event, workspace, Uri, l10n } from 'vscode';
+import * as path from 'path';
 import { Repository } from './repository';
 import { anyEvent, dispose, filterEvent } from './util';
 import { Branch, RefType, RemoteSourcePublisher } from './api/git';
@@ -48,7 +49,8 @@ class CheckoutStatusBar {
 		];
 
 		const rebasing = !!this.repository.rebaseCommit;
-		const label = operationData[0]?.refLabel ?? `${this.repository.headLabel}${rebasing ? ` (${l10n.t('Rebasing')})` : ''}`;
+		const repoName = path.basename(this.repository.root);
+		const label = operationData[0]?.refLabel ?? `${repoName}/${this.repository.headLabel}${rebasing ? ` (${l10n.t('Rebasing')})` : ''}`;
 		const command = (this.state.isCheckoutRunning || this.state.isCommitRunning || this.state.isSyncRunning) ? '' : 'git.checkout';
 
 		return {

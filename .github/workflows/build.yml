@@ -127,6 +127,9 @@ jobs:
       - name: Build app (vscode-win32-x64-min)
         run: npm run gulp vscode-win32-x64-min
 
+      - name: Copy inno_updater.exe + vcruntime140.dll into the app's tools folder
+        run: npm run gulp vscode-win32-x64-inno-updater
+
       - name: Build installer (vscode-win32-x64-user-setup)
         run: npm run gulp vscode-win32-x64-user-setup
 
