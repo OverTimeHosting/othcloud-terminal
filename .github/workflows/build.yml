@@ -104,7 +104,12 @@ jobs:
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        env:
+          npm_command: "ci --prefer-offline --no-audit --no-fund"
+          npm_config_prefer_offline: "true"
+          npm_config_audit: "false"
+          npm_config_fund: "false"
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Cache Electron and built-in extensions
         uses: actions/cache@v4
@@ -196,7 +201,12 @@ jobs:
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        env:
+          npm_command: "ci --prefer-offline --no-audit --no-fund"
+          npm_config_prefer_offline: "true"
+          npm_config_audit: "false"
+          npm_config_fund: "false"
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Cache built-in extensions
         uses: actions/cache@v4
