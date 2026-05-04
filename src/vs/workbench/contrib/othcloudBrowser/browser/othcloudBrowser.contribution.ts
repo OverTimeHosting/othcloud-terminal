@@ -23,12 +23,6 @@ const BROWSER_EDITOR_ID = 'workbench.editor.browser';
 
 const BROWSER_OPEN_COMMAND = 'workbench.action.browser.open';
 
-const QUICK_LINKS: ReadonlyArray<{ id: string; title: string; icon: { id: string }; url: string; order: number }> = [
-	{ id: 'othcloud.browser.quickLink.github', title: 'GitHub', icon: Codicon.github, url: 'https://github.com', order: 10 },
-	{ id: 'othcloud.browser.quickLink.overtime', title: 'Overtime Hosting', icon: Codicon.server, url: 'https://overtime.hosting', order: 11 },
-	{ id: 'othcloud.browser.quickLink.othcloud', title: 'Othcloud', icon: Codicon.cloud, url: 'https://othcloud.xyz', order: 12 },
-];
-
 function findExistingBrowserGroup(editorGroupsService: IEditorGroupsService): IEditorGroup | undefined {
 	for (const group of editorGroupsService.groups) {
 		if (group.editors.some(e => e.resource?.scheme === Schemas.vscodeBrowser)) {
@@ -124,29 +118,59 @@ registerAction2(class PopOutBrowserAction extends Action2 {
 	}
 });
 
-for (const link of QUICK_LINKS) {
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				id: link.id,
-				title: localize2(link.id, link.title),
-				icon: link.icon,
-				f1: true,
-				menu: [{
-					id: MenuId.BrowserNavigationToolbar,
-					group: 'quicklinks',
-					order: link.order,
-				}],
-			});
-		}
+registerAction2(class OpenGithubQuickLinkAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.browser.quickLink.github',
+			title: localize2('othcloud.browser.quickLink.github', "GitHub"),
+			icon: Codicon.github,
+			f1: true,
+			menu: [{ id: MenuId.BrowserNavigationToolbar, group: 'quicklinks', order: 10 }],
+		});
+	}
 
-		async run(accessor: ServicesAccessor): Promise<void> {
-			const editorService = accessor.get(IEditorService);
-			const editorGroupsService = accessor.get(IEditorGroupsService);
-			await openBrowserTab(editorService, editorGroupsService, link.url);
-		}
-	});
-}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const editorGroupsService = accessor.get(IEditorGroupsService);
+		await openBrowserTab(editorService, editorGroupsService, 'https://github.com');
+	}
+});
+
+registerAction2(class OpenOvertimeQuickLinkAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.browser.quickLink.overtime',
+			title: localize2('othcloud.browser.quickLink.overtime', "Overtime Hosting"),
+			icon: Codicon.server,
+			f1: true,
+			menu: [{ id: MenuId.BrowserNavigationToolbar, group: 'quicklinks', order: 11 }],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const editorGroupsService = accessor.get(IEditorGroupsService);
+		await openBrowserTab(editorService, editorGroupsService, 'https://overtime.hosting');
+	}
+});
+
+registerAction2(class OpenOthcloudQuickLinkAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.browser.quickLink.othcloud',
+			title: localize2('othcloud.browser.quickLink.othcloud', "Othcloud"),
+			icon: Codicon.cloud,
+			f1: true,
+			menu: [{ id: MenuId.BrowserNavigationToolbar, group: 'quicklinks', order: 12 }],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const editorGroupsService = accessor.get(IEditorGroupsService);
+		await openBrowserTab(editorService, editorGroupsService, 'https://othcloud.xyz');
+	}
+});
 
 class OthcloudBrowserExternalOpener extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.othcloudBrowserExternalOpener';
