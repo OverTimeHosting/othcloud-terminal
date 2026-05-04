@@ -20,10 +20,10 @@ import { BrowserViewUri } from '../../../../platform/browserView/common/browserV
 
 const BROWSER_OPEN_COMMAND = 'workbench.action.browser.open';
 
-const DEFAULT_TABS: readonly string[] = [
-	'https://github.com',
-	'https://overtime.hosting',
-	'https://othcloud.xyz',
+const QUICK_LINKS: ReadonlyArray<{ id: string; title: string; icon: { id: string }; url: string; order: number }> = [
+	{ id: 'othcloud.browser.quickLink.github', title: 'GitHub', icon: Codicon.github, url: 'https://github.com', order: 10 },
+	{ id: 'othcloud.browser.quickLink.overtime', title: 'Overtime Hosting', icon: Codicon.server, url: 'https://overtime.hosting', order: 11 },
+	{ id: 'othcloud.browser.quickLink.othcloud', title: 'Othcloud', icon: Codicon.cloud, url: 'https://othcloud.xyz', order: 12 },
 ];
 
 function findExistingBrowserGroup(editorGroupsService: IEditorGroupsService): IEditorGroup | undefined {
@@ -38,22 +38,17 @@ function findExistingBrowserGroup(editorGroupsService: IEditorGroupsService): IE
 async function openBrowserTab(
 	editorService: IEditorService,
 	editorGroupsService: IEditorGroupsService,
-	commandService: ICommandService,
-	url: string,
+	url: string | undefined,
 ): Promise<void> {
-	const existing = findExistingBrowserGroup(editorGroupsService);
-	if (existing) {
-		// Reuse the existing browser group - open the new tab there directly.
-		await editorService.openEditor({ resource: BrowserViewUri.forUrl(url) }, existing.id);
-	} else {
-		// No browser group yet - create the side group via the built-in command.
-		await commandService.executeCommand(BROWSER_OPEN_COMMAND, { url, openToSide: true });
-	}
+	const targetGroup = findExistingBrowserGroup(editorGroupsService) ?? editorGroupsService.activeGroup;
 
-	// Lock the browser group so non-browser editors won't land there.
-	const group = findExistingBrowserGroup(editorGroupsService);
-	if (group && !group.isLocked) {
-		group.lock(true);
+	await editorService.openEditor(
+		{ resource: BrowserViewUri.forUrl(url), options: { pinned: !!url } },
+		targetGroup.id,
+	);
+
+	if (!targetGroup.isLocked) {
+		targetGroup.lock(true);
 	}
 }
 
@@ -79,12 +74,33 @@ registerAction2(class OpenBrowserAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const editorGroupsService = accessor.get(IEditorGroupsService);
-		const commandService = accessor.get(ICommandService);
-		for (const url of DEFAULT_TABS) {
-			await openBrowserTab(editorService, editorGroupsService, commandService, url);
-		}
+		await openBrowserTab(editorService, editorGroupsService, undefined);
 	}
 });
+
+for (const link of QUICK_LINKS) {
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: link.id,
+				title: localize2(link.id, link.title),
+				icon: link.icon,
+				f1: true,
+				menu: [{
+					id: MenuId.BrowserNavigationToolbar,
+					group: 'quicklinks',
+					order: link.order,
+				}],
+			});
+		}
+
+		async run(accessor: ServicesAccessor): Promise<void> {
+			const editorService = accessor.get(IEditorService);
+			const editorGroupsService = accessor.get(IEditorGroupsService);
+			await openBrowserTab(editorService, editorGroupsService, link.url);
+		}
+	});
+}
 
 class OthcloudBrowserExternalOpener extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.othcloudBrowserExternalOpener';

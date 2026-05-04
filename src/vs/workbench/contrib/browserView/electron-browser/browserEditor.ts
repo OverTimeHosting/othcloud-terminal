@@ -490,7 +490,10 @@ export class BrowserEditor extends EditorPane {
 		if (!this.overlayManager) {
 			return;
 		}
-		const overlappingOverlays = this.overlayManager.getOverlappingOverlays(this._browserContainer);
+		// Notifications no longer pause the browser view — they are filtered out so
+		// the user can keep interacting with the page while a notification is shown.
+		const overlappingOverlays = this.overlayManager.getOverlappingOverlays(this._browserContainer)
+			.filter(overlay => overlay.type !== BrowserOverlayType.Notification);
 		const hasOverlappingOverlay = overlappingOverlays.length > 0;
 		this.updateOverlayPauseMessage(overlappingOverlays);
 		if (hasOverlappingOverlay !== this._overlayVisible) {
