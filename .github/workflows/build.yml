@@ -8,7 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "Run the full Windows packaging build (slow, ~45 min) and upload the result as an artifact"
+        description: "Build & upload the full Windows x64 desktop package (~45 min)"
+        type: boolean
+        default: false
+      package_linux_reh:
+        description: "Build & upload the Linux x64 remote server (REH) for remote-SSH (~30 min)"
         type: boolean
         default: false
 
@@ -60,7 +64,9 @@ jobs:
 
   package:
     name: Package Windows x64
-    if: github.event_name == 'workflow_dispatch' && inputs.package
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.package)
     needs: compile
     runs-on: windows-latest
     timeout-minutes: 120
@@ -113,13 +119,118 @@ jobs:
           node build/lib/electron.ts
           node build/lib/builtInExtensions.ts
 
-      - name: Build (vscode-win32-x64-min)
+      - name: Build app (vscode-win32-x64-min)
         run: npm run gulp vscode-win32-x64-min
 
-      - name: Upload Othcloud Terminal build
+      - name: Build installer (vscode-win32-x64-user-setup)
+        run: npm run gulp vscode-win32-x64-user-setup
+
+      - name: Stage build outputs into the repo (for upload-artifact)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path .build/upload | Out-Null
+          $appSrc = Resolve-Path ../VSCode-win32-x64
+          Copy-Item -Recurse -Force $appSrc .build/upload/VSCode-win32-x64
+          Copy-Item -Force .build/win32-x64/user-setup/*.exe .build/upload/
+
+      - name: Upload unzipped Othcloud Terminal app
         uses: actions/upload-artifact@v4
         with:
           name: othcloud-terminal-win32-x64
-          path: .build/win32-x64/VSCode-win32-x64
+          path: .build/upload/VSCode-win32-x64
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installer (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-win32-x64-user-setup
+          path: .build/upload/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  package-linux-reh:
+    name: Package Linux x64 Remote Server (REH)
+    if: github.event_name == 'workflow_dispatch' && inputs.package_linux_reh
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbfile-dev libsecret-1-dev libkrb5-dev libx11-dev \
+            libxkbcommon-dev fakeroot rpm
+
+      - name: Cache node_modules
+        id: nm-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            build/node_modules
+            build/vite/node_modules
+            extensions/node_modules
+            extensions/*/node_modules
+            extensions/*/server/node_modules
+            remote/node_modules
+            remote/web/node_modules
+            test/*/node_modules
+            .vscode/extensions/*/node_modules
+          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', '.nvmrc') }}
+
+      - name: Install dependencies
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Cache built-in extensions
+        uses: actions/cache@v4
+        with:
+          path: .build/builtInExtensions
+          key: builtin-extensions-${{ hashFiles('product.json') }}
+
+      - name: Download built-in extensions
+        run: node build/lib/builtInExtensions.ts
+
+      - name: Build remote server (vscode-reh-linux-x64-min)
+        run: npm run gulp vscode-reh-linux-x64-min
+
+      - name: Read version
+        id: ver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Tarball the server with the remote-SSH expected name
+        run: |
+          cd .build
+          tar -czf "othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" -C vscode-reh-linux-x64 .
+
+      - name: Upload Linux REH server (raw folder)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-server-linux-x64
+          path: .build/vscode-reh-linux-x64
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Linux REH server (.tar.gz for remote-SSH)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          path: .build/othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
           if-no-files-found: error
           retention-days: 7
