@@ -147,21 +147,32 @@ out-vscode-reh-min/
 out-vscode-reh-web/
 out-vscode-reh-web-min/
 
-# Build intermediate caches
+# Build intermediate caches and packaged release outputs
 .build/
 .gulp-cache/
+vscode-reh-*/
+vscode-linux-*/
+vscode-darwin-*/
+vscode-win32-*/
 
 # Native modules output
 build/Release/
 build/Debug/
 
+# Rust CLI build output
+cli/target/
+cli/Cargo.lock.bak
+
 # Per-extension build outputs
 extensions/*/dist/
 extensions/*/out/
+extensions/*/server/
+extensions/*/lib/
 extensions/*/node_modules/
 
-# Packaged extensions
+# Packaged extensions and downloaded sources
 *.vsix
+extensions/*/.vscodeignore.bak
 
 # Server / REH installs (created by Open Remote-SSH and similar)
 .othcloud-terminal/
@@ -171,8 +182,34 @@ extensions/*/node_modules/
 .vscode-oss-dev/
 .vscode-server-oss/
 
+# Local product overrides (loaded at runtime when VSCODE_DEV is set)
+product.overrides.json
+
+# Test artifacts
+.test/
+test-results/
+playwright-report/
+.crash-reports/
+
+# Profiles / diagnostics
+*.heapsnapshot
+*.cpuprofile
+*.heapprofile
+isolate-*.log
+
 # IDE / OS noise
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
+*.tmp
+*.bak
+.idea/
+.vs/
+
+# Local environment / personal config
+.env
+.env.local
+.npmrc.local
+*.pem
+*.key
