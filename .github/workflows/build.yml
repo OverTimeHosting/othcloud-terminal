@@ -54,9 +54,13 @@ jobs:
         run: npm run compile-check-ts-native
 
       - name: Validate layers
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run valid-layers-check
 
       - name: Hygiene
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run hygiene
         continue-on-error: true
 
