@@ -1,0 +1,89 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Run the full Windows packaging build (slow, ~45 min) and upload the result as an artifact"
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: Compile (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CHILD_CONCURRENCY: 1
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Hygiene
+        run: npm run hygiene
+        continue-on-error: true
+
+  package:
+    name: Package Windows x64
+    if: github.event_name == 'workflow_dispatch' && inputs.package
+    needs: compile
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      CHILD_CONCURRENCY: 1
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Electron and built-in extensions
+        run: |
+          node build/lib/electron.ts
+          node build/lib/builtInExtensions.ts
+
+      - name: Build (vscode-win32-x64-min)
+        run: npm run gulp vscode-win32-x64-min
+
+      - name: Upload Othcloud Terminal build
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-win32-x64
+          path: .build/win32-x64/VSCode-win32-x64
+          if-no-files-found: error
+          retention-days: 7
