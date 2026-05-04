@@ -166,9 +166,12 @@ cli/Cargo.lock.bak
 # Per-extension build outputs
 extensions/*/dist/
 extensions/*/out/
-extensions/*/server/
 extensions/*/lib/
 extensions/*/node_modules/
+extensions/*/server/out/
+extensions/*/server/dist/
+extensions/*/server/lib/
+extensions/*/server/node_modules/
 
 # Packaged extensions and downloaded sources
 *.vsix

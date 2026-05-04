@@ -9,6 +9,11 @@ import { Command, commands, Disposable, MessageOptions, Position, QuickPickItem,
 import TelemetryReporter from '@vscode/extension-telemetry';
 import { uniqueNamesGenerator, adjectives, animals, colors, NumberDictionary } from '@joaomoreno/unique-names-generator';
 import { ForcePushMode, GitErrorCodes, RefType, Status, CommitOptions, RemoteSourcePublisher, Remote, Branch, Ref } from './api/git';
+
+interface InternalCommitOptions extends CommitOptions {
+	branchProtectionConfirmed?: boolean;
+	forceCommitToNewBranch?: boolean;
+}
 import { Git, GitError, Stash, Worktree } from './git';
 import { Model } from './model';
 import { GitResourceGroup, Repository, Resource, ResourceGroupType } from './repository';
@@ -2294,7 +2299,7 @@ export class CommandCenter {
 	private async smartCommit(
 		repository: Repository,
 		getCommitMessage: () => Promise<string | undefined>,
-		opts: CommitOptions
+		opts: InternalCommitOptions
 	): Promise<void> {
 		const config = workspace.getConfiguration('git', Uri.file(repository.root));
 		let promptToSaveFilesBeforeCommit = config.get<'always' | 'staged' | 'never'>('promptToSaveFilesBeforeCommit');
@@ -2465,7 +2470,15 @@ export class CommandCenter {
 
 		// Branch protection commit hook
 		const branchProtectionPrompt = config.get<'alwaysCommit' | 'alwaysCommitToNewBranch' | 'alwaysPrompt'>('branchProtectionPrompt')!;
-		if (repository.isBranchProtected() && (branchProtectionPrompt === 'alwaysPrompt' || branchProtectionPrompt === 'alwaysCommitToNewBranch')) {
+		const branchProtectionActive = repository.isBranchProtected() && (branchProtectionPrompt === 'alwaysPrompt' || branchProtectionPrompt === 'alwaysCommitToNewBranch');
+
+		if (opts.forceCommitToNewBranch) {
+			const branchName = await this.promptForBranchName(repository);
+			if (!branchName) {
+				return;
+			}
+			await repository.branch(branchName, true);
+		} else if (branchProtectionActive && !opts.branchProtectionConfirmed) {
 			const commitToNewBranch = l10n.t('Commit to a New Branch');
 
 			let pick: string | undefined = commitToNewBranch;
@@ -2493,7 +2506,7 @@ export class CommandCenter {
 		await repository.commit(message, opts);
 	}
 
-	private async commitWithAnyInput(repository: Repository, opts: CommitOptions): Promise<void> {
+	private async commitWithAnyInput(repository: Repository, opts: InternalCommitOptions): Promise<void> {
 		const message = repository.inputBox.value;
 		const root = Uri.file(repository.root);
 		const config = workspace.getConfiguration('git', root);
@@ -2534,6 +2547,16 @@ export class CommandCenter {
 	@command('git.commit', { repository: true })
 	async commit(repository: Repository, postCommitCommand?: string | null): Promise<void> {
 		await this.commitWithAnyInput(repository, { postCommitCommand });
+	}
+
+	@command('git.commitToCurrentBranch', { repository: true })
+	async commitToCurrentBranch(repository: Repository, postCommitCommand?: string | null): Promise<void> {
+		await this.commitWithAnyInput(repository, { postCommitCommand, branchProtectionConfirmed: true });
+	}
+
+	@command('git.commitToNewBranch', { repository: true })
+	async commitToNewBranch(repository: Repository, postCommitCommand?: string | null): Promise<void> {
+		await this.commitWithAnyInput(repository, { postCommitCommand, forceCommitToNewBranch: true });
 	}
 
 	@command('git.commitAmend', { repository: true })

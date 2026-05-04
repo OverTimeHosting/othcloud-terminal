@@ -45,6 +45,8 @@
 	"command.closeAllUnmodifiedEditors": "Close All Unmodified Editors",
 	"command.commit": "Commit",
 	"command.commitAmend": "Commit (Amend)",
+	"command.commitToCurrentBranch": "Commit to Current Branch",
+	"command.commitToNewBranch": "Commit to a New Branch",
 	"command.commitSigned": "Commit (Signed Off)",
 	"command.commitStaged": "Commit Staged",
 	"command.commitEmpty": "Commit Empty",

@@ -8,7 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "Run the full Windows packaging build (slow, ~45 min) and upload the result as an artifact"
+        description: "Build & upload the full Windows x64 desktop package (~45 min)"
+        type: boolean
+        default: false
+      package_linux_reh:
+        description: "Build & upload the Linux x64 remote server (REH) for remote-SSH (~30 min)"
         type: boolean
         default: false
 
@@ -85,5 +89,51 @@ jobs:
         with:
           name: othcloud-terminal-win32-x64
           path: .build/win32-x64/VSCode-win32-x64
+          if-no-files-found: error
+          retention-days: 7
+
+  package-linux-reh:
+    name: Package Linux x64 Remote Server (REH)
+    if: github.event_name == 'workflow_dispatch' && inputs.package_linux_reh
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CHILD_CONCURRENCY: 1
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbfile-dev libsecret-1-dev libkrb5-dev libx11-dev \
+            libxkbcommon-dev fakeroot rpm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download built-in extensions
+        run: node build/lib/builtInExtensions.ts
+
+      - name: Build remote server (vscode-reh-linux-x64-min)
+        run: npm run gulp vscode-reh-linux-x64-min
+
+      - name: Upload Linux REH server
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-server-linux-x64
+          path: .build/vscode-reh-linux-x64
           if-no-files-found: error
           retention-days: 7

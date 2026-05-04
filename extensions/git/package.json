@@ -346,6 +346,20 @@
         "enablement": "!operationInProgress"
       },
       {
+        "command": "git.commitToCurrentBranch",
+        "title": "%command.commitToCurrentBranch%",
+        "category": "Git",
+        "icon": "$(check)",
+        "enablement": "!operationInProgress"
+      },
+      {
+        "command": "git.commitToNewBranch",
+        "title": "%command.commitToNewBranch%",
+        "category": "Git",
+        "icon": "$(git-branch)",
+        "enablement": "!operationInProgress"
+      },
+      {
         "command": "git.commitSigned",
         "title": "%command.commitSigned%",
         "category": "Git",
@@ -1317,6 +1331,14 @@
         },
         {
           "command": "git.commitAmend",
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "git.commitToCurrentBranch",
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "git.commitToNewBranch",
           "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0"
         },
         {

@@ -202,10 +202,28 @@ export class CommitCommandsCenter {
 				l10n.t('Committing Changes to New Branch...');
 		}
 
-		return [
+		const commands: Command[] = [
 			{ command: 'git.commit', title: l10n.t('{0} Commit', icon ?? '$(check)'), tooltip, arguments: [this.repository.sourceControl, null] },
 			{ command: 'git.commitAmend', title: l10n.t('{0} Commit (Amend)', icon ?? '$(check)'), tooltip, arguments: [this.repository.sourceControl, null] },
 		];
+
+		if (isBranchProtected) {
+			const branchLabel = branch ?? l10n.t('Current Branch');
+			commands.push({
+				command: 'git.commitToCurrentBranch',
+				title: l10n.t('$(check) Commit to "{0}"', branchLabel),
+				tooltip: l10n.t('Commit Changes to "{0}" (skip protection prompt)', branchLabel),
+				arguments: [this.repository.sourceControl, null]
+			});
+			commands.push({
+				command: 'git.commitToNewBranch',
+				title: l10n.t('$(git-branch) Commit to a New Branch'),
+				tooltip: l10n.t('Commit Changes to a New Branch'),
+				arguments: [this.repository.sourceControl, null]
+			});
+		}
+
+		return commands;
 	}
 
 	private getPostCommitCommandStringFromSetting(): string | undefined {
