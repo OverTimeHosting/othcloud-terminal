@@ -12,11 +12,14 @@ import { Schemas } from '../../../../base/common/network.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IExternalOpener, IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IEditorGroupsService, IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
+
+const BROWSER_EDITOR_ID = 'workbench.editor.browser';
 
 const BROWSER_OPEN_COMMAND = 'workbench.action.browser.open';
 
@@ -75,6 +78,49 @@ registerAction2(class OpenBrowserAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const editorGroupsService = accessor.get(IEditorGroupsService);
 		await openBrowserTab(editorService, editorGroupsService, undefined);
+	}
+});
+
+registerAction2(class PopOutBrowserAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.browser.popOut',
+			title: localize2('othcloud.browser.popOut', "Pop Out as Floating Window"),
+			icon: Codicon.multipleWindows,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', BROWSER_EDITOR_ID),
+				ContextKeyExpr.equals('browserHasUrl', true),
+			),
+			menu: [{
+				id: MenuId.BrowserActionsToolbar,
+				group: 'actions',
+				order: 5,
+			}],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const activeResource = editorService.activeEditor?.resource;
+		if (!activeResource || activeResource.scheme !== Schemas.vscodeBrowser) {
+			return;
+		}
+		const url = BrowserViewUri.getUrl(activeResource);
+		if (!url) {
+			return;
+		}
+		await editorService.openEditor({
+			resource: BrowserViewUri.forUrl(url),
+			options: {
+				pinned: true,
+				auxiliary: {
+					compact: true,
+					alwaysOnTop: true,
+					bounds: { width: 480, height: 320 },
+				},
+			},
+		}, AUX_WINDOW_GROUP);
 	}
 });
 
