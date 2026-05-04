@@ -134,3 +134,45 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# ----- Othcloud Terminal / VS Code build outputs -----
+
+# Watcher / dev compile output
+out/
+out-build/
+out-vscode/
+out-vscode-min/
+out-vscode-reh/
+out-vscode-reh-min/
+out-vscode-reh-web/
+out-vscode-reh-web-min/
+
+# Build intermediate caches
+.build/
+.gulp-cache/
+
+# Native modules output
+build/Release/
+build/Debug/
+
+# Per-extension build outputs
+extensions/*/dist/
+extensions/*/out/
+extensions/*/node_modules/
+
+# Packaged extensions
+*.vsix
+
+# Server / REH installs (created by Open Remote-SSH and similar)
+.othcloud-terminal/
+.othcloud-terminal-dev/
+.othcloud-terminal-server/
+.vscode-oss/
+.vscode-oss-dev/
+.vscode-server-oss/
+
+# IDE / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
