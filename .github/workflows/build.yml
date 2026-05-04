@@ -33,26 +33,22 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Cache node_modules
+      - name: Cache node_modules (root + build only, for type-check)
         id: nm-cache
         uses: actions/cache@v4
         with:
           path: |
             node_modules
             build/node_modules
-            build/vite/node_modules
-            extensions/node_modules
-            extensions/*/node_modules
-            extensions/*/server/node_modules
-            remote/node_modules
-            remote/web/node_modules
-            test/*/node_modules
-            .vscode/extensions/*/node_modules
-          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', '.nvmrc') }}
+          key: nm-typecheck-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', '.nvmrc') }}
 
-      - name: Install dependencies
+      - name: Install root + build deps only (skip recursive postinstall)
         if: steps.nm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        env:
+          VSCODE_SKIP_NODE_VERSION_CHECK: "1"
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+          npm --prefix build ci --ignore-scripts --no-audit --no-fund --prefer-offline
 
       - name: Type-check (tsgo, fast)
         run: npm run compile-check-ts-native
