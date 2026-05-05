@@ -32,6 +32,14 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            build/package-lock.json
+            build/vite/package-lock.json
+            extensions/**/package-lock.json
+            remote/**/package-lock.json
+            test/**/package-lock.json
+            .vscode/extensions/**/package-lock.json
 
       - uses: actions/setup-python@v5
         with:
@@ -80,6 +88,14 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            build/package-lock.json
+            build/vite/package-lock.json
+            extensions/**/package-lock.json
+            remote/**/package-lock.json
+            test/**/package-lock.json
+            .vscode/extensions/**/package-lock.json
 
       - uses: actions/setup-python@v5
         with:
@@ -109,6 +125,7 @@ jobs:
           npm_config_prefer_offline: "true"
           npm_config_audit: "false"
           npm_config_fund: "false"
+          npm_config_jobs: "max"
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Cache Electron and built-in extensions
@@ -118,6 +135,8 @@ jobs:
             .build/electron
             .build/builtInExtensions
           key: build-deps-${{ runner.os }}-x64-${{ hashFiles('.npmrc', 'product.json', 'cgmanifest.json') }}
+          restore-keys: |
+            build-deps-${{ runner.os }}-x64-
 
       - name: Download Electron and built-in extensions
         run: |
@@ -175,6 +194,14 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            build/package-lock.json
+            build/vite/package-lock.json
+            extensions/**/package-lock.json
+            remote/**/package-lock.json
+            test/**/package-lock.json
+            .vscode/extensions/**/package-lock.json
 
       - uses: actions/setup-python@v5
         with:
@@ -211,6 +238,7 @@ jobs:
           npm_config_prefer_offline: "true"
           npm_config_audit: "false"
           npm_config_fund: "false"
+          npm_config_jobs: "max"
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Cache built-in extensions
@@ -218,6 +246,8 @@ jobs:
         with:
           path: .build/builtInExtensions
           key: builtin-extensions-${{ hashFiles('product.json') }}
+          restore-keys: |
+            builtin-extensions-
 
       - name: Download built-in extensions
         run: node build/lib/builtInExtensions.ts
