@@ -159,7 +159,9 @@ jobs:
 
   package-linux-reh:
     name: Package Linux x64 Remote Server (REH)
-    if: github.event_name == 'workflow_dispatch' && inputs.package_linux_reh
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.package_linux_reh)
     needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
