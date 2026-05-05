@@ -7,13 +7,17 @@ import { localize, localize2 } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { DevelopersInput } from './developersInput.js';
 import { DevelopersPage } from './developersPage.js';
+import { DevelopersAccountMenuContribution } from './developersAccountMenu.js';
+import { DevelopersActivityBarContribution, STORAGE_ACTIVITY_BAR_ENABLED } from './developersActivityBar.js';
 
 const OPEN_DEVELOPERS_COMMAND = 'othcloud.developers.open';
 
@@ -115,6 +119,55 @@ registerAction2(class OpenTasksWindowAction extends Action2 {
 		}, AUX_WINDOW_GROUP);
 	}
 });
+
+registerAction2(class SignOutAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.developers.signOut',
+			title: localize2('othcloud.developers.signOutAction', 'Sign out of othcloud Developer'),
+			category: localize2('othcloud.developers.category', 'Developers'),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const storage = accessor.get(IStorageService);
+		// We only clear the JWT + cached user — keep the access token so the
+		// user doesn't have to re-enter the server password to sign back in.
+		storage.remove('othcloud.developers.jwt', StorageScope.APPLICATION);
+		storage.remove('othcloud.developers.user', StorageScope.APPLICATION);
+	}
+});
+
+registerAction2(class ToggleActivityBarAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.developers.toggleActivityBar',
+			title: localize2('othcloud.developers.toggleActivityBar', 'Toggle in Activity Bar'),
+			category: localize2('othcloud.developers.category', 'Developers'),
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor, explicit?: boolean): Promise<void> {
+		const storage = accessor.get(IStorageService);
+		const current = storage.getBoolean(STORAGE_ACTIVITY_BAR_ENABLED, StorageScope.APPLICATION, false);
+		const next = typeof explicit === 'boolean' ? explicit : !current;
+		storage.store(STORAGE_ACTIVITY_BAR_ENABLED, next, StorageScope.APPLICATION, StorageTarget.MACHINE);
+	}
+});
+
+registerWorkbenchContribution2(
+	DevelopersAccountMenuContribution.ID,
+	DevelopersAccountMenuContribution,
+	WorkbenchPhase.AfterRestored,
+);
+
+registerWorkbenchContribution2(
+	DevelopersActivityBarContribution.ID,
+	DevelopersActivityBarContribution,
+	WorkbenchPhase.BlockStartup,
+);
 
 // Marker export to silence isolatedModules.
 export const _ = localize('othcloud.developers.placeholder', 'othcloud Developers');

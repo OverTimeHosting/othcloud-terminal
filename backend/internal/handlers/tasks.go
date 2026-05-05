@@ -31,12 +31,15 @@ type taskDTO struct {
 }
 
 type messageDTO struct {
-	ID             int64  `json:"id"`
-	TaskID         int64  `json:"taskId"`
-	AuthorID       int64  `json:"authorId"`
-	AuthorUsername string `json:"authorUsername"`
-	Body           string `json:"body"`
-	CreatedAt      string `json:"createdAt"`
+	ID             int64   `json:"id"`
+	TaskID         int64   `json:"taskId"`
+	AuthorID       int64   `json:"authorId"`
+	AuthorUsername string  `json:"authorUsername"`
+	Body           string  `json:"body"`
+	CreatedAt      string  `json:"createdAt"`
+	AttachmentID   *int64  `json:"attachmentId,omitempty"`
+	AttachmentMime *string `json:"attachmentMime,omitempty"`
+	AttachmentName *string `json:"attachmentName,omitempty"`
 }
 
 type checklistItemDTO struct {
@@ -81,6 +84,20 @@ type messageDoc struct {
 	AuthorUsername string    `bson:"author_username"`
 	Body           string    `bson:"body"`
 	CreatedAt      time.Time `bson:"created_at"`
+	AttachmentID   *int64    `bson:"attachment_id,omitempty"`
+	AttachmentMime *string   `bson:"attachment_mime,omitempty"`
+	AttachmentName *string   `bson:"attachment_name,omitempty"`
+}
+
+type attachmentDoc struct {
+	ID           int64     `bson:"_id"`
+	TaskID       int64     `bson:"task_id"`
+	Mime         string    `bson:"mime"`
+	OriginalName string    `bson:"original_name"`
+	Size         int64     `bson:"size"`
+	FilePath     string    `bson:"file_path"`
+	UploadedBy   int64     `bson:"uploaded_by"`
+	UploadedAt   time.Time `bson:"uploaded_at"`
 }
 
 type checklistDoc struct {
@@ -384,6 +401,7 @@ func (s *Server) ListMessages(w http.ResponseWriter, r *http.Request) {
 		out = append(out, messageDTO{
 			ID: m.ID, TaskID: m.TaskID, AuthorID: m.AuthorID, AuthorUsername: m.AuthorUsername,
 			Body: m.Body, CreatedAt: iso(m.CreatedAt),
+			AttachmentID: m.AttachmentID, AttachmentMime: m.AttachmentMime, AttachmentName: m.AttachmentName,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

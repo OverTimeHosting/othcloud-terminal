@@ -187,8 +187,23 @@ jobs:
     env:
       VSCODE_ARCH: x64
       npm_config_arch: x64
+      # Skip the TS->TS mangler (private-field renaming, size optimization only).
+      # ubuntu-latest has ~7GB RAM; mangler peaks add ~3GB on top of TS and have
+      # been OOM-killing the runner ("hosted runner lost communication").
+      VSCODE_NO_MANGLE: "1"
+      # Match heap to actual runner RAM; the default `npm run gulp` script asks
+      # for 8192 which exceeds physical memory.
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
+
+      - name: Add 8 GB swap (prevents OOM during compile)
+        run: |
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
 
       - uses: actions/setup-node@v4
         with:

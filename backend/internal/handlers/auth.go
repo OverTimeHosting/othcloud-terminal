@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/othcloud/terminal-backend/internal/auth"
 )
@@ -116,4 +117,32 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, userDTO{ID: u.ID, Username: u.Username})
+}
+
+func (s *Server) ListUsers(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := reqCtx(r)
+	defer cancel()
+
+	cur, err := s.DB.Users.Find(ctx, bson.M{},
+		options.Find().SetProjection(bson.M{"_id": 1, "username": 1}).SetSort(bson.D{{Key: "username", Value: 1}}),
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db query failed")
+		return
+	}
+	defer cur.Close(ctx)
+
+	out := []userDTO{}
+	for cur.Next(ctx) {
+		var u struct {
+			ID       int64  `bson:"_id"`
+			Username string `bson:"username"`
+		}
+		if err := cur.Decode(&u); err != nil {
+			writeError(w, http.StatusInternalServerError, "db decode failed")
+			return
+		}
+		out = append(out, userDTO{ID: u.ID, Username: u.Username})
+	}
+	writeJSON(w, http.StatusOK, out)
 }

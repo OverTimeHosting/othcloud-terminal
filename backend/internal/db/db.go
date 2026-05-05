@@ -11,14 +11,15 @@ import (
 )
 
 type DB struct {
-	Client        *mongo.Client
-	Database      *mongo.Database
-	Counters      *mongo.Collection
-	Users         *mongo.Collection
-	Tasks         *mongo.Collection
-	TaskMessages  *mongo.Collection
-	TaskChecklist *mongo.Collection
-	TaskActivity  *mongo.Collection
+	Client          *mongo.Client
+	Database        *mongo.Database
+	Counters        *mongo.Collection
+	Users           *mongo.Collection
+	Tasks           *mongo.Collection
+	TaskMessages    *mongo.Collection
+	TaskChecklist   *mongo.Collection
+	TaskActivity    *mongo.Collection
+	TaskAttachments *mongo.Collection
 }
 
 func Open(ctx context.Context, uri, dbName string) (*DB, error) {
@@ -35,14 +36,15 @@ func Open(ctx context.Context, uri, dbName string) (*DB, error) {
 
 	d := client.Database(dbName)
 	db := &DB{
-		Client:        client,
-		Database:      d,
-		Counters:      d.Collection("counters"),
-		Users:         d.Collection("users"),
-		Tasks:         d.Collection("tasks"),
-		TaskMessages:  d.Collection("task_messages"),
-		TaskChecklist: d.Collection("task_checklist"),
-		TaskActivity:  d.Collection("task_activity"),
+		Client:          client,
+		Database:        d,
+		Counters:        d.Collection("counters"),
+		Users:           d.Collection("users"),
+		Tasks:           d.Collection("tasks"),
+		TaskMessages:    d.Collection("task_messages"),
+		TaskChecklist:   d.Collection("task_checklist"),
+		TaskActivity:    d.Collection("task_activity"),
+		TaskAttachments: d.Collection("task_attachments"),
 	}
 	if err := db.ensureIndexes(connectCtx); err != nil {
 		return nil, fmt.Errorf("ensure indexes: %w", err)

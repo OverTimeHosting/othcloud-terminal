@@ -55,6 +55,7 @@ func main() {
 	mongoURI := envOr("OTHCLOUD_MONGO_URI", defaultMongoURI)
 	mongoDB := envOr("OTHCLOUD_MONGO_DB", "othcloud_terminal")
 	corsOrigin := envOr("OTHCLOUD_CORS_ORIGIN", "*")
+	handlers.UploadDir = envOr("OTHCLOUD_UPLOAD_DIR", "./uploads")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -78,6 +79,7 @@ func main() {
 
 	authed := http.NewServeMux()
 	authed.HandleFunc("GET /api/auth/me", srv.Me)
+	authed.HandleFunc("GET /api/users", srv.ListUsers)
 
 	authed.HandleFunc("GET /api/tasks", srv.ListTasks)
 	authed.HandleFunc("POST /api/tasks", srv.CreateTask)
@@ -86,6 +88,9 @@ func main() {
 
 	authed.HandleFunc("GET /api/tasks/{id}/messages", srv.ListMessages)
 	authed.HandleFunc("POST /api/tasks/{id}/messages", srv.PostMessage)
+	authed.HandleFunc("POST /api/tasks/{id}/messages/upload", srv.PostMessageWithAttachment)
+
+	authed.HandleFunc("GET /api/attachments/{id}", srv.GetAttachment)
 
 	authed.HandleFunc("GET /api/tasks/{id}/checklist", srv.ListChecklist)
 	authed.HandleFunc("POST /api/tasks/{id}/checklist", srv.AddChecklistItem)

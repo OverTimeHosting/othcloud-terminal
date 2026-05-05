@@ -55,6 +55,9 @@ export interface DevMessage {
 	authorUsername: string;
 	body: string;
 	createdAt: string;
+	attachmentId?: number;
+	attachmentMime?: string;
+	attachmentName?: string;
 }
 
 export interface DevChecklistItem {
@@ -129,6 +132,10 @@ export const DevelopersClient = {
 		return request<DevUser>('/api/auth/me', { method: 'GET', jwt });
 	},
 
+	async listUsers(jwt: string): Promise<DevUser[]> {
+		return request<DevUser[]>('/api/users', { method: 'GET', jwt });
+	},
+
 	async listTasks(jwt: string): Promise<DevTask[]> {
 		return request<DevTask[]>('/api/tasks', { method: 'GET', jwt });
 	},
@@ -160,6 +167,47 @@ export const DevelopersClient = {
 			method: 'POST', jwt,
 			body: JSON.stringify({ body }),
 		});
+	},
+
+	async postMessageWithAttachment(jwt: string, taskId: number, file: File, body: string): Promise<DevMessage> {
+		if (!accessToken) {
+			throw new DevelopersAccessTokenMissingError();
+		}
+		const fd = new FormData();
+		fd.append('file', file);
+		if (body) { fd.append('body', body); }
+		const res = await fetch(`${DEVELOPERS_SERVER_URL}/api/tasks/${taskId}/messages/upload`, {
+			method: 'POST',
+			headers: {
+				'X-Access-Token': accessToken,
+				'Authorization': `Bearer ${jwt}`,
+			},
+			body: fd,
+		});
+		const text = await res.text();
+		const parsed = text ? JSON.parse(text) : undefined;
+		if (!res.ok) {
+			const msg = (parsed && typeof parsed.error === 'string') ? parsed.error : `HTTP ${res.status}`;
+			throw new DevelopersApiError(res.status, msg);
+		}
+		return parsed as DevMessage;
+	},
+
+	async fetchAttachmentBlobUrl(jwt: string, attachmentId: number): Promise<string> {
+		if (!accessToken) {
+			throw new DevelopersAccessTokenMissingError();
+		}
+		const res = await fetch(`${DEVELOPERS_SERVER_URL}/api/attachments/${attachmentId}`, {
+			headers: {
+				'X-Access-Token': accessToken,
+				'Authorization': `Bearer ${jwt}`,
+			},
+		});
+		if (!res.ok) {
+			throw new DevelopersApiError(res.status, `failed to load attachment: HTTP ${res.status}`);
+		}
+		const blob = await res.blob();
+		return URL.createObjectURL(blob);
 	},
 
 	async listChecklist(jwt: string, taskId: number): Promise<DevChecklistItem[]> {

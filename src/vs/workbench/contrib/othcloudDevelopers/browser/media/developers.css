@@ -15,42 +15,6 @@
 	overflow: hidden;
 }
 
-.othcloud-developers .dev-topbar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 8px 14px;
-	border-bottom: 1px solid var(--vscode-panel-border);
-	flex: 0 0 auto;
-}
-
-.othcloud-developers .dev-topbar .dev-brand {
-	font-weight: 600;
-	letter-spacing: 0.02em;
-}
-
-.othcloud-developers .dev-topbar .dev-account {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	padding: 4px 10px;
-	border-radius: 12px;
-	background: var(--vscode-badge-background);
-	color: var(--vscode-badge-foreground);
-	font-size: 12px;
-	cursor: pointer;
-}
-
-.othcloud-developers .dev-topbar .dev-account.signed-out {
-	background: transparent;
-	color: var(--vscode-descriptionForeground);
-	cursor: default;
-}
-
-.othcloud-developers .dev-topbar .dev-account .codicon {
-	font-size: 14px;
-}
-
 .othcloud-developers .dev-main {
 	flex: 1 1 auto;
 	display: flex;
@@ -150,6 +114,23 @@
 	flex-wrap: wrap;
 }
 
+.othcloud-developers .dev-home-settings {
+	margin-top: 6px;
+	padding-top: 12px;
+	border-top: 1px solid var(--vscode-panel-border);
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.othcloud-developers .dev-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
 /* ---------- Forms / shared ---------- */
 
 .othcloud-developers .dev-form {
@@ -165,7 +146,8 @@
 	letter-spacing: 0.04em;
 }
 
-.othcloud-developers .dev-form input {
+.othcloud-developers .dev-form input,
+.othcloud-developers .dev-textarea {
 	background: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	border: 1px solid var(--vscode-input-border, transparent);
@@ -175,8 +157,16 @@
 	font: inherit;
 }
 
-.othcloud-developers .dev-form input:focus {
+.othcloud-developers .dev-form input:focus,
+.othcloud-developers .dev-textarea:focus {
 	border-color: var(--vscode-focusBorder);
+}
+
+.othcloud-developers .dev-textarea {
+	resize: vertical;
+	min-height: 70px;
+	font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+	line-height: 1.45;
 }
 
 .othcloud-developers .dev-button {
@@ -232,6 +222,228 @@
 }
 
 .othcloud-developers .dev-tasks-toolbar .spacer { flex: 1 1 auto; }
+
+.othcloud-developers .dev-tasks-body {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.othcloud-developers .dev-layout-toggle {
+	display: inline-flex;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	overflow: hidden;
+	margin-right: 6px;
+}
+
+.othcloud-developers .dev-layout-btn {
+	background: transparent;
+	color: var(--vscode-foreground);
+	border: none;
+	padding: 4px 10px;
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.othcloud-developers .dev-layout-btn + .dev-layout-btn {
+	border-left: 1px solid var(--vscode-panel-border);
+}
+
+.othcloud-developers .dev-layout-btn:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.othcloud-developers .dev-layout-btn.active {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+/* ---------- Table ---------- */
+
+.othcloud-developers .dev-table-wrap {
+	flex: 1 1 auto;
+	overflow: auto;
+}
+
+.othcloud-developers .dev-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.othcloud-developers .dev-table th,
+.othcloud-developers .dev-table td {
+	text-align: left;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	vertical-align: middle;
+}
+
+.othcloud-developers .dev-table th {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--vscode-descriptionForeground);
+	font-weight: 600;
+	position: sticky;
+	top: 0;
+	background: var(--vscode-editor-background);
+	z-index: 1;
+}
+
+.othcloud-developers .dev-table-row {
+	cursor: pointer;
+}
+
+.othcloud-developers .dev-table-row:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.othcloud-developers .dev-col-id {
+	color: var(--vscode-descriptionForeground);
+	width: 60px;
+}
+
+.othcloud-developers .dev-col-title {
+	font-weight: 600;
+}
+
+.othcloud-developers .dev-col-updated {
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
+/* ---------- Kanban ---------- */
+
+.othcloud-developers .dev-kanban {
+	flex: 1 1 auto;
+	display: flex;
+	gap: 12px;
+	padding: 12px;
+	overflow: auto;
+	min-height: 0;
+}
+
+.othcloud-developers .dev-kanban-col {
+	flex: 1 1 0;
+	min-width: 220px;
+	max-width: 360px;
+	display: flex;
+	flex-direction: column;
+	background: var(--vscode-sideBar-background);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.othcloud-developers .dev-kanban-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.othcloud-developers .dev-kanban-head .label { font-weight: 600; }
+.othcloud-developers .dev-kanban-head .count {
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	border-radius: 10px;
+	padding: 1px 7px;
+	font-size: 10px;
+}
+
+.othcloud-developers .dev-kanban-list {
+	flex: 1 1 auto;
+	overflow: auto;
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.othcloud-developers .dev-kanban-empty {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	text-align: center;
+	padding: 18px 0;
+}
+
+.othcloud-developers .dev-kanban-card {
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	padding: 8px 10px;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.othcloud-developers .dev-kanban-card:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.othcloud-developers .dev-kanban-card .title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.othcloud-developers .dev-kanban-card .meta {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.othcloud-developers .dev-kanban-moves {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+.othcloud-developers .dev-kanban-move {
+	background: transparent;
+	color: var(--vscode-textLink-foreground);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 3px;
+	padding: 2px 6px;
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.othcloud-developers .dev-kanban-move:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.othcloud-developers .dev-kanban-move:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* ---------- Select control ---------- */
+
+.othcloud-developers .dev-select {
+	background: var(--vscode-dropdown-background, var(--vscode-input-background));
+	color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+	border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border, transparent));
+	padding: 5px 8px;
+	border-radius: 2px;
+	font: inherit;
+	outline: none;
+}
+
+.othcloud-developers .dev-select:focus {
+	border-color: var(--vscode-focusBorder);
+}
 
 .othcloud-developers .dev-tasks-list {
 	flex: 1 1 auto;
@@ -302,6 +514,53 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.othcloud-developers .dev-desc-section {
+	padding: 10px 16px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.othcloud-developers .dev-desc-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.othcloud-developers .dev-desc-header h4 {
+	margin: 0;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.othcloud-developers .dev-desc-text {
+	margin: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+	font-size: 12.5px;
+	line-height: 1.5;
+	max-height: 220px;
+	overflow: auto;
+}
+
+.othcloud-developers .dev-desc-empty {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	font-style: italic;
+}
+
+.othcloud-developers .dev-desc-edit-actions {
+	display: flex;
+	gap: 6px;
+	justify-content: flex-end;
+	margin-top: 4px;
+}
+
 .othcloud-developers .dev-chat {
 	flex: 1 1 auto;
 	display: flex;
@@ -343,6 +602,20 @@
 .othcloud-developers .dev-chat-message .body {
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+.othcloud-developers .dev-chat-message .attachment {
+	margin-top: 4px;
+}
+
+.othcloud-developers .dev-chat-image {
+	display: block;
+	max-width: 100%;
+	max-height: 320px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-input-background);
+	cursor: zoom-in;
 }
 
 .othcloud-developers .dev-chat-input {
