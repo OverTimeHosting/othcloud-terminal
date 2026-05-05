@@ -402,6 +402,9 @@ import './contrib/githubRepos/browser/githubRepos.contribution.js';
 // Othcloud Browser
 import './contrib/othcloudBrowser/browser/othcloudBrowser.contribution.js';
 
+// Othcloud Developers
+import './contrib/othcloudDevelopers/browser/developers.contribution.js';
+
 // Local History
 import './contrib/localHistory/browser/localHistory.contribution.js';
 

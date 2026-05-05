@@ -23,5 +23,8 @@ export const compileBuildWithoutManglingTask = task.define('compile-build-withou
 gulp.task(compileBuildWithoutManglingTask);
 
 // CI compile, including nls and inline sources in sourcemaps, mangling, minification, for build
-export const compileBuildWithManglingTask = task.define('compile-build-with-mangling', task.series(compilation.copyCodiconsTask, makeCompileBuildTask(false)));
+// Set VSCODE_NO_MANGLE=1 to skip the TS->TS mangler (much faster locally; the mangler step
+// runs a worker pool of TypeScript language services and can take 20+ minutes on Windows/OneDrive).
+const skipMangleEnv = !!process.env['VSCODE_NO_MANGLE'];
+export const compileBuildWithManglingTask = task.define('compile-build-with-mangling', task.series(compilation.copyCodiconsTask, makeCompileBuildTask(skipMangleEnv)));
 gulp.task(compileBuildWithManglingTask);
