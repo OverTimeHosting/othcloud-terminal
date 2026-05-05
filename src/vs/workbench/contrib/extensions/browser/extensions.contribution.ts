@@ -50,7 +50,7 @@ import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigration
 import { ResourceContextKey, WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { IWorkbenchContribution, IWorkbenchContributionsRegistry, registerWorkbenchContribution2, Extensions as WorkbenchExtensions, WorkbenchPhase } from '../../../common/contributions.js';
 import { EditorExtensions } from '../../../common/editor.js';
-import { IViewContainersRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
+import { IViewContainersRegistry, Extensions as ViewContainerExtensions, IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { DEFAULT_ACCOUNT_SIGN_IN_COMMAND } from '../../../services/accounts/browser/defaultAccount.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EnablementState, IExtensionManagementServerService, IPublisherInfo, IWorkbenchExtensionEnablementService, IWorkbenchExtensionManagementService } from '../../../services/extensionManagement/common/extensionManagement.js';
@@ -73,6 +73,8 @@ import { KeymapExtensions } from '../common/extensionsUtils.js';
 import { SearchExtensionsTool, SearchExtensionsToolData } from '../common/searchExtensionsTool.js';
 import { ShowRuntimeExtensionsAction } from './abstractRuntimeExtensionsEditor.js';
 import { ExtensionEditor } from './extensionEditor.js';
+import { ExtensionsMarketplaceEditor } from './extensionsMarketplaceEditor.js';
+import { ExtensionsMarketplaceEditorInput } from './extensionsMarketplaceEditorInput.js';
 import { ExtensionEnablementWorkspaceTrustTransitionParticipant } from './extensionEnablementWorkspaceTrustTransitionParticipant.js';
 import { ExtensionRecommendationNotificationService } from './extensionRecommendationNotificationService.js';
 import { ExtensionRecommendationsService } from './extensionRecommendationsService.js';
@@ -111,6 +113,29 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 		new SyncDescriptor(ExtensionsInput)
 	]);
 
+// Othcloud Terminal: yank the Extensions view container back to its default Sidebar location on startup.
+// shouldBeHidden() in paneCompositeBar then hides the icon — net effect: Extensions never appears in
+// the activity bar or secondary sidebar even if the user previously dragged it there.
+class OthcloudExtensionsLocationGuard implements IWorkbenchContribution {
+	static readonly ID = 'othcloud.extensions.locationGuard';
+	constructor(@IViewDescriptorService viewDescriptorService: IViewDescriptorService) {
+		try {
+			const container = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).get(VIEWLET_ID);
+			if (container) {
+				const current = viewDescriptorService.getViewContainerLocation(container);
+				if (current !== ViewContainerLocation.Sidebar) {
+					viewDescriptorService.moveViewContainerToLocation(container, ViewContainerLocation.Sidebar, undefined, OthcloudExtensionsLocationGuard.ID);
+				}
+			}
+		} catch { /* swallow — best-effort cleanup */ }
+	}
+}
+registerWorkbenchContribution2(OthcloudExtensionsLocationGuard.ID, OthcloudExtensionsLocationGuard, WorkbenchPhase.AfterRestored);
+
+// keep symbols referenced so unused-import lint doesn't complain
+void ExtensionsMarketplaceEditor;
+void ExtensionsMarketplaceEditorInput;
+
 export const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer(
 	{
 		id: VIEWLET_ID,
@@ -127,6 +152,16 @@ export const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainer
 		rejectAddedViews: true,
 		alwaysUseContainerInfo: true,
 	}, ViewContainerLocation.Sidebar);
+
+// Othcloud Terminal: Extensions activity bar icon is hidden — surface the entry in the gear (manage) menu.
+MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+	command: {
+		id: VIEWLET_ID,
+		title: localize('extensions', "Extensions"),
+	},
+	group: '2_configuration',
+	order: 5,
+});
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({

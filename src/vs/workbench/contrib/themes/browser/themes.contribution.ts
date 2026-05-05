@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
-import { KeyMod, KeyChord, KeyCode } from '../../../../base/common/keyCodes.js';
-import { MenuRegistry, MenuId, Action2, registerAction2, ISubmenuItem } from '../../../../platform/actions/common/actions.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { equalsIgnoreCase } from '../../../../base/common/strings.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
@@ -30,7 +29,6 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IExtensionResourceLoaderService } from '../../../../platform/extensionResourceLoader/common/extensionResourceLoader.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { FileIconThemeData } from '../../../services/themes/browser/fileIconThemeData.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -406,11 +404,7 @@ registerAction2(class extends Action2 {
 			id: SelectColorThemeCommandId,
 			title: localize2('selectTheme.label', 'Color Theme'),
 			category: Categories.Preferences,
-			f1: true,
-			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyMod.CtrlCmd | KeyCode.KeyT)
-			}
+			f1: false, // Othcloud Terminal: theme picker hidden — Othcloud is the only color theme
 		});
 	}
 
@@ -797,40 +791,5 @@ registerAction2(class extends Action2 {
 	}
 });
 
-const ThemesSubMenu = new MenuId('ThemesSubMenu');
-MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
-	title: localize('themes', "Themes"),
-	submenu: ThemesSubMenu,
-	group: '2_configuration',
-	order: 7
-} satisfies ISubmenuItem);
-MenuRegistry.appendMenuItem(MenuId.MenubarPreferencesMenu, {
-	title: localize({ key: 'miSelectTheme', comment: ['&& denotes a mnemonic'] }, "&&Themes"),
-	submenu: ThemesSubMenu,
-	group: '2_configuration',
-	order: 7
-} satisfies ISubmenuItem);
-
-MenuRegistry.appendMenuItem(ThemesSubMenu, {
-	command: {
-		id: SelectColorThemeCommandId,
-		title: localize('selectTheme.label', 'Color Theme')
-	},
-	order: 1
-});
-
-MenuRegistry.appendMenuItem(ThemesSubMenu, {
-	command: {
-		id: SelectFileIconThemeCommandId,
-		title: localize('themes.selectIconTheme.label', "File Icon Theme")
-	},
-	order: 2
-});
-
-MenuRegistry.appendMenuItem(ThemesSubMenu, {
-	command: {
-		id: SelectProductIconThemeCommandId,
-		title: localize('themes.selectProductIconTheme.label', "Product Icon Theme")
-	},
-	order: 3
-});
+// Othcloud Terminal: "Themes" submenu removed from manage button + File > Preferences menu.
+// Othcloud is the only color theme; theme switching is disabled.

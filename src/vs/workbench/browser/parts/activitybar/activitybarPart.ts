@@ -20,7 +20,7 @@ import { assertReturnsDefined } from '../../../../base/common/types.js';
 import { CustomMenubarControl } from '../titlebar/menubarControl.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { getMenuBarVisibility, MenuSettings } from '../../../../platform/window/common/window.js';
-import { IAction, Separator, SubmenuAction, toAction } from '../../../../base/common/actions.js';
+import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { HoverPosition } from '../../../../base/browser/ui/hover/hoverWidget.js';
@@ -29,11 +29,10 @@ import { IPaneCompositePart } from '../paneCompositePart.js';
 import { IPaneCompositeBarOptions, PaneCompositeBar } from '../paneCompositeBar.js';
 import { GlobalCompositeBar } from '../globalCompositeBar.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
-import { Action2, IMenuService, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, IMenuService, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
-import { getContextMenuActions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
-import { IViewDescriptorService, ViewContainerLocation, ViewContainerLocationToString } from '../../../common/views.js';
+import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -265,7 +264,7 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IMenuService private readonly menuService: IMenuService,
+		@IMenuService _menuService: IMenuService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
 	) {
 		super(location,
@@ -419,10 +418,8 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 	}
 
 	getActivityBarContextMenuActions(): IAction[] {
-		const activityBarPositionMenu = this.menuService.getMenuActions(MenuId.ActivityBarPositionMenu, this.contextKeyService, { shouldForwardArgs: true, renderShortTitle: true });
-		const positionActions = getContextMenuActions(activityBarPositionMenu).secondary;
+		// Othcloud Terminal: Activity Bar Position submenu removed from context menu — position is locked.
 		const actions = [
-			new SubmenuAction('workbench.action.panel.position', localize('activity bar position', "Activity Bar Position"), positionActions),
 			toAction({ id: ToggleSidebarPositionAction.ID, label: ToggleSidebarPositionAction.getLabel(this.layoutService), run: () => this.instantiationService.invokeFunction(accessor => new ToggleSidebarPositionAction().run(accessor)) }),
 		];
 
@@ -451,7 +448,7 @@ registerAction2(class extends Action2 {
 				order: 1
 			}, {
 				id: MenuId.CommandPalette,
-				when: ContextKeyExpr.notEquals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.DEFAULT),
+				when: ContextKeyExpr.false(),
 			}]
 		});
 	}
@@ -477,7 +474,7 @@ registerAction2(class extends Action2 {
 				order: 2
 			}, {
 				id: MenuId.CommandPalette,
-				when: ContextKeyExpr.notEquals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.TOP),
+				when: ContextKeyExpr.false(),
 			}]
 		});
 	}
@@ -503,7 +500,7 @@ registerAction2(class extends Action2 {
 				order: 3
 			}, {
 				id: MenuId.CommandPalette,
-				when: ContextKeyExpr.notEquals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.BOTTOM),
+				when: ContextKeyExpr.false(),
 			}]
 		});
 	}
@@ -529,7 +526,7 @@ registerAction2(class extends Action2 {
 				order: 4
 			}, {
 				id: MenuId.CommandPalette,
-				when: ContextKeyExpr.notEquals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.HIDDEN),
+				when: ContextKeyExpr.false(),
 			}]
 		});
 	}
@@ -539,23 +536,7 @@ registerAction2(class extends Action2 {
 	}
 });
 
-MenuRegistry.appendMenuItem(MenuId.MenubarAppearanceMenu, {
-	submenu: MenuId.ActivityBarPositionMenu,
-	title: localize('positionActivituBar', "Activity Bar Position"),
-	group: '3_workbench_layout_move',
-	order: 2
-});
-
-MenuRegistry.appendMenuItem(MenuId.ViewContainerTitleContext, {
-	submenu: MenuId.ActivityBarPositionMenu,
-	title: localize('positionActivituBar', "Activity Bar Position"),
-	when: ContextKeyExpr.or(
-		ContextKeyExpr.equals('viewContainerLocation', ViewContainerLocationToString(ViewContainerLocation.Sidebar)),
-		ContextKeyExpr.equals('viewContainerLocation', ViewContainerLocationToString(ViewContainerLocation.AuxiliaryBar))
-	),
-	group: '3_workbench_layout_move',
-	order: 1
-});
+// Othcloud Terminal: Activity Bar Position submenus removed — position is fixed at "top".
 
 registerAction2(class extends SwitchCompositeViewAction {
 	constructor() {

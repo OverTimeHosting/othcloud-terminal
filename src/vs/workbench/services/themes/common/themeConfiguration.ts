@@ -140,7 +140,10 @@ const themeSettingsConfiguration: IConfigurationNode = {
 		[ThemeSettings.PRODUCT_ICON_THEME]: productIconThemeSettingSchema
 	}
 };
-configurationRegistry.registerConfiguration(themeSettingsConfiguration);
+// Othcloud Terminal: theme settings are hidden from the Settings UI.
+// Othcloud is the only color theme; defaults come from ThemeSettingDefaults.
+// configurationRegistry.registerConfiguration(themeSettingsConfiguration);
+void themeSettingsConfiguration;
 
 const themeSettingsWindowConfiguration: IConfigurationNode = {
 	id: 'window',

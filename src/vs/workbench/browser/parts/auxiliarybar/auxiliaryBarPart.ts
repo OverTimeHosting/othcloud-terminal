@@ -19,7 +19,7 @@ import { IViewDescriptorService, ViewContainerLocation } from '../../../common/v
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ActivityBarPosition, IWorkbenchLayoutService, LayoutSettings, Parts, Position } from '../../../services/layout/browser/layoutService.js';
 import { HoverPosition } from '../../../../base/browser/ui/hover/hoverWidget.js';
-import { IAction, Separator, SubmenuAction, toAction } from '../../../../base/common/actions.js';
+import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { ToggleAuxiliaryBarAction } from './auxiliaryBarActions.js';
 import { assertReturnsDefined } from '../../../../base/common/types.js';
 import { LayoutPriority } from '../../../../base/browser/ui/splitview/splitview.js';
@@ -30,7 +30,6 @@ import { ActionsOrientation } from '../../../../base/browser/ui/actionbar/action
 import { IPaneCompositeBarOptions } from '../paneCompositeBar.js';
 import { IMenuService, MenuId } from '../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { getContextMenuActions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { VisibleViewContainersTracker } from '../visibleViewContainersTracker.js';
 import { Extensions } from '../../panecomposite.js';
@@ -241,9 +240,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			}
 		}
 
-		const activityBarPositionMenu = this.menuService.getMenuActions(MenuId.ActivityBarPositionMenu, this.contextKeyService, { shouldForwardArgs: true, renderShortTitle: true });
-		const positionActions = getContextMenuActions(activityBarPositionMenu).secondary;
-
+		// Othcloud Terminal: Activity Bar Position submenu removed from secondary side bar context menu.
 		const toggleShowLabelsAction = toAction({
 			id: 'workbench.action.auxiliarybar.toggleShowLabels',
 			label: this.configuration.showLabels ? localize('showIcons', "Show Icons") : localize('showLabels', "Show Labels"),
@@ -253,7 +250,6 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 
 		actions.push(...[
 			new Separator(),
-			new SubmenuAction('workbench.action.panel.position', localize('activity bar position', "Activity Bar Position"), positionActions),
 			toAction({ id: ToggleSidebarPositionAction.ID, label: currentPositionRight ? localize('move second side bar left', "Move Secondary Side Bar Left") : localize('move second side bar right', "Move Secondary Side Bar Right"), run: () => this.commandService.executeCommand(ToggleSidebarPositionAction.ID) }),
 			toggleShowLabelsAction,
 			toAction({ id: ToggleAuxiliaryBarAction.ID, label: localize('hide second side bar', "Hide Secondary Side Bar"), run: () => this.commandService.executeCommand(ToggleAuxiliaryBarAction.ID) })

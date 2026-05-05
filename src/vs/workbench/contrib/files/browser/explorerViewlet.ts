@@ -68,9 +68,11 @@ export class ExplorerViewletViewsContribution extends Disposable implements IWor
 		const viewDescriptorsToRegister: IViewDescriptor[] = [];
 		const viewDescriptorsToDeregister: IViewDescriptor[] = [];
 
+		// Othcloud Terminal: Open Editors view removed from the Explorer.
 		const openEditorsViewDescriptor = this.createOpenEditorsViewDescriptor();
-		if (!viewDescriptors.some(v => v.id === openEditorsViewDescriptor.id)) {
-			viewDescriptorsToRegister.push(openEditorsViewDescriptor);
+		const registeredOpenEditorsView = viewDescriptors.find(v => v.id === openEditorsViewDescriptor.id);
+		if (registeredOpenEditorsView) {
+			viewDescriptorsToDeregister.push(registeredOpenEditorsView);
 		}
 
 		const explorerViewDescriptor = this.createExplorerViewDescriptor();
