@@ -133,7 +133,7 @@ registerActiveInstanceAction({
 			when: ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
 			isHiddenByDefault: true
 		},
-		...[MenuId.EditorTitle, MenuId.CompactWindowEditorTitle].map(id => ({
+		...[MenuId.EditorTitle].map(id => ({
 			id,
 			group: '1_shellIntegration',
 			order: 0,
@@ -180,7 +180,7 @@ registerTerminalAction({
 			when: ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
 			isHiddenByDefault: true
 		},
-		...[MenuId.EditorTitle, MenuId.CompactWindowEditorTitle].map(id => ({
+		...[MenuId.EditorTitle].map(id => ({
 			id,
 			group: '1_shellIntegration',
 			order: 1,

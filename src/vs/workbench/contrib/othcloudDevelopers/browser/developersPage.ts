@@ -185,7 +185,7 @@ export class DevelopersPage extends EditorPane {
 
 	private async renderMain(): Promise<void> {
 		// Tear down any per-view timers (e.g. the task timer ticker) before
-		// the DOM is replaced — otherwise they leak ticking onto detached nodes.
+		// the DOM is replaced â€” otherwise they leak ticking onto detached nodes.
 		if (this._timerCleanup) {
 			this._timerCleanup();
 			this._timerCleanup = null;
@@ -257,7 +257,7 @@ export class DevelopersPage extends EditorPane {
 	private clearAccessToken(): void {
 		setAccessToken(null);
 		this._storage.remove(STORAGE_ACCESS_TOKEN, StorageScope.APPLICATION);
-		// Clearing the access token also signs you out — JWTs are useless
+		// Clearing the access token also signs you out â€” JWTs are useless
 		// without a way to send them through the gate.
 		this.jwt = null;
 		this.user = null;
@@ -267,71 +267,53 @@ export class DevelopersPage extends EditorPane {
 		void this.renderMain();
 	}
 
-	// ---------- Centered auth (login + register) ----------
+	// ---------- Centered auth (sign in with othcloud account) ----------
 
 	private renderCenteredAuth(): void {
-		let mode: 'login' | 'register' = 'login';
 		const center = append(this.mainArea, $('.dev-auth-center'));
 		const card = append(center, $('.dev-auth-card'));
 
 		append(card, $('h2.dev-auth-title', {}, localize('othcloud.dev.account', 'othcloud account')));
-		const sub = append(card, $('.dev-auth-sub'));
-		const updateSub = () => {
-			sub.textContent = mode === 'login'
-				? localize('othcloud.dev.signInSub', 'Sign in to view and create tasks.')
-				: localize('othcloud.dev.registerSub', 'Create an account to get started.');
-		};
-
-		const tabs = append(card, $('.dev-auth-tabs'));
-		const loginTab = append(tabs, $('button', {}, localize('othcloud.dev.signIn', 'Sign in')));
-		const registerTab = append(tabs, $('button', {}, localize('othcloud.dev.register', 'Register')));
+		append(card, $('.dev-auth-sub', {},
+			localize('othcloud.dev.signInSub', 'Sign in with your othcloud email and password.'),
+		));
 
 		const form = append(card, $('.dev-form'));
-		append(form, $('label', {}, localize('othcloud.dev.username', 'Username')));
-		const usernameInput = append(form, $('input')) as HTMLInputElement;
-		usernameInput.type = 'text';
-		usernameInput.autocomplete = 'username';
+		append(form, $('label', {}, localize('othcloud.dev.email', 'Email')));
+		const emailInput = append(form, $('input')) as HTMLInputElement;
+		emailInput.type = 'email';
+		emailInput.autocomplete = 'email';
 
 		append(form, $('label', {}, localize('othcloud.dev.password', 'Password')));
 		const passwordInput = append(form, $('input')) as HTMLInputElement;
 		passwordInput.type = 'password';
+		passwordInput.autocomplete = 'current-password';
 
 		const error = append(card, $('.dev-error'));
 		error.style.display = 'none';
 
-		const submit = append(card, $('button.dev-button.dev-auth-submit')) as HTMLButtonElement;
+		const submit = append(card, $('button.dev-button.dev-auth-submit', {},
+			localize('othcloud.dev.signIn', 'Sign in'),
+		)) as HTMLButtonElement;
 
 		const changeTokenRow = append(card, $('.dev-auth-footer'));
-		const changeTokenLink = append(changeTokenRow, $('button.dev-back', {}, localize('othcloud.dev.changeToken', 'Use a different access token'))) as HTMLButtonElement;
+		const changeTokenLink = append(changeTokenRow, $('button.dev-back', {},
+			localize('othcloud.dev.changeToken', 'Use a different access token'),
+		)) as HTMLButtonElement;
 		changeTokenLink.onclick = () => this.clearAccessToken();
 
-		const refreshTabs = () => {
-			loginTab.classList.toggle('active', mode === 'login');
-			registerTab.classList.toggle('active', mode === 'register');
-			passwordInput.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-			submit.textContent = mode === 'login'
-				? localize('othcloud.dev.signIn', 'Sign in')
-				: localize('othcloud.dev.createAccount', 'Create account');
-			updateSub();
-		};
-		loginTab.onclick = () => { mode = 'login'; refreshTabs(); };
-		registerTab.onclick = () => { mode = 'register'; refreshTabs(); };
-		refreshTabs();
-
 		const doSubmit = async () => {
-			const u = usernameInput.value.trim();
-			const p = passwordInput.value;
-			if (!u || !p) {
-				error.textContent = localize('othcloud.dev.required', 'Username and password are required.');
+			const email = emailInput.value.trim();
+			const pw = passwordInput.value;
+			if (!email || !pw) {
+				error.textContent = localize('othcloud.dev.required', 'Email and password are required.');
 				error.style.display = '';
 				return;
 			}
 			submit.disabled = true;
 			error.style.display = 'none';
 			try {
-				const res = mode === 'login'
-					? await DevelopersClient.login(u, p)
-					: await DevelopersClient.register(u, p);
+				const res = await DevelopersClient.login(email, pw);
 				this.applyAuth(res.token, res.user);
 				this.view = { kind: 'home' };
 				await this.renderMain();
@@ -353,7 +335,7 @@ export class DevelopersPage extends EditorPane {
 		};
 		submit.onclick = doSubmit;
 		passwordInput.onkeydown = (e) => { if (e.key === 'Enter') { void doSubmit(); } };
-		usernameInput.focus();
+		emailInput.focus();
 	}
 
 	// ---------- Home (post sign-in default) ----------
@@ -362,7 +344,7 @@ export class DevelopersPage extends EditorPane {
 		const center = append(this.mainArea, $('.dev-auth-center'));
 		const card = append(center, $('.dev-home-card'));
 		append(card, $('h2.dev-auth-title', {}, localize(
-			'othcloud.dev.welcome', 'Welcome, {0}', this.user!.username,
+			'othcloud.dev.welcome', 'Welcome, {0}', this.user!.email,
 		)));
 		append(card, $('p.dev-home-text', {}, localize(
 			'othcloud.dev.homeBody', 'Your othcloud account is connected. Open the Tasks window from the Developers menu, or use the button below.',
@@ -410,7 +392,7 @@ export class DevelopersPage extends EditorPane {
 		const newBtn = append(toolbar, $('button.dev-button', {}, localize('othcloud.dev.newTask', 'New task'))) as HTMLButtonElement;
 
 		const body = append(this.mainArea, $('.dev-tasks-body'));
-		append(body, $('.dev-empty', {}, localize('othcloud.dev.loading', 'Loading…')));
+		append(body, $('.dev-empty', {}, localize('othcloud.dev.loading', 'Loadingâ€¦')));
 
 		const load = async () => {
 			clearNode(body);
@@ -549,8 +531,8 @@ export class DevelopersPage extends EditorPane {
 				}
 			};
 
-			append(row, $('td', {}, t.assigneeUsername ?? '—'));
-			append(row, $('td', {}, t.creatorUsername));
+			append(row, $('td', {}, t.assigneeEmail ?? 'â€”'));
+			append(row, $('td', {}, t.creatorEmail));
 			append(row, $('td.dev-col-updated', {}, formatTime(t.updatedAt)));
 			append(row, $('td'));
 		}
@@ -584,15 +566,15 @@ export class DevelopersPage extends EditorPane {
 			void this.renderMain();
 		};
 		append(card, $('.title', {}, t.title));
-		const metaText = t.assigneeUsername
-			? localize('othcloud.dev.taskMeta', '#{0} · by {1} · for {2}', String(t.id), t.creatorUsername, t.assigneeUsername)
-			: localize('othcloud.dev.taskMetaNoAssignee', '#{0} · by {1}', String(t.id), t.creatorUsername);
+		const metaText = t.assigneeEmail
+			? localize('othcloud.dev.taskMeta', '#{0} Â· by {1} Â· for {2}', String(t.id), t.creatorEmail, t.assigneeEmail)
+			: localize('othcloud.dev.taskMetaNoAssignee', '#{0} Â· by {1}', String(t.id), t.creatorEmail);
 		append(card, $('.meta', {}, metaText));
 		if (t.serviceId !== undefined) {
 			const chip = append(card, $('button.dev-service-chip')) as HTMLButtonElement;
 			const sname = serviceMap.get(t.serviceId) ?? `Service #${t.serviceId}`;
 			chip.title = localize('othcloud.dev.openService', 'Open service "{0}"', sname);
-			chip.textContent = '⛓ ' + sname;
+			chip.textContent = 'â›“ ' + sname;
 			chip.onclick = (e) => {
 				e.stopPropagation();
 				this.view = { kind: 'service', serviceId: t.serviceId! };
@@ -603,7 +585,7 @@ export class DevelopersPage extends EditorPane {
 		const moves = append(card, $('.dev-kanban-moves'));
 		for (const target of this.statuses) {
 			if (target.status === status) { continue; }
-			const btn = append(moves, $('button.dev-kanban-move', {}, '→ ' + target.label)) as HTMLButtonElement;
+			const btn = append(moves, $('button.dev-kanban-move', {}, 'â†’ ' + target.label)) as HTMLButtonElement;
 			btn.onclick = async (e) => {
 				e.stopPropagation();
 				btn.disabled = true;
@@ -637,7 +619,7 @@ export class DevelopersPage extends EditorPane {
 		const desc = append(form, $('textarea.dev-textarea')) as HTMLTextAreaElement;
 		desc.rows = 4;
 		if (prefill?.description) { desc.value = prefill.description; }
-		desc.placeholder = localize('othcloud.dev.descPlaceholder', 'Add details, links, anything useful…');
+		desc.placeholder = localize('othcloud.dev.descPlaceholder', 'Add details, links, anything usefulâ€¦');
 		append(form, $('label', {}, localize('othcloud.dev.assignToSelect', 'Assign to')));
 		const assigneeSelect = append(form, $('select.dev-select')) as HTMLSelectElement;
 		const noOpt = document.createElement('option');
@@ -657,8 +639,8 @@ export class DevelopersPage extends EditorPane {
 			const users = await DevelopersClient.listUsers(this.jwt!);
 			for (const u of users) {
 				const opt = document.createElement('option');
-				opt.value = u.username;
-				opt.textContent = u.username + (u.id === this.user!.id ? ' (you)' : '');
+				opt.value = u.email;
+				opt.textContent = u.email + (u.id === this.user!.id ? ' (you)' : '');
 				assigneeSelect.appendChild(opt);
 			}
 		} catch (err) {
@@ -673,7 +655,7 @@ export class DevelopersPage extends EditorPane {
 			const fileName = prefill.source.filePath.split('/').pop() ?? prefill.source.filePath;
 			banner.textContent = localize(
 				'othcloud.dev.sourceCaptured',
-				'📎 Linked source: {0}:{1}-{2}',
+				'ðŸ“Ž Linked source: {0}:{1}-{2}',
 				fileName, String(prefill.source.lineStart), String(prefill.source.lineEnd),
 			);
 		}
@@ -711,9 +693,9 @@ export class DevelopersPage extends EditorPane {
 		const aside = append(wrap, $('.dev-detail-aside'));
 
 		const header = append(main, $('.dev-detail-header'));
-		const back = append(header, $('button.dev-back', {}, '← ' + localize('othcloud.dev.backToList', 'Back to tasks'))) as HTMLButtonElement;
+		const back = append(header, $('button.dev-back', {}, 'â† ' + localize('othcloud.dev.backToList', 'Back to tasks'))) as HTMLButtonElement;
 		back.onclick = () => { this.view = { kind: 'tasks' }; void this.renderMain(); };
-		const titleEl = append(header, $('h2', {}, '…'));
+		const titleEl = append(header, $('h2', {}, 'â€¦'));
 		const metaEl = append(header, $('.meta', {}, ''));
 
 		// Description section: read-only by default, click "Edit" to reveal a
@@ -731,14 +713,14 @@ export class DevelopersPage extends EditorPane {
 		fileInput.type = 'file';
 		fileInput.accept = 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml';
 		fileInput.style.display = 'none';
-		const attachBtn = append(chatInputWrap, $('button.dev-button.secondary', {}, '📎')) as HTMLButtonElement;
+		const attachBtn = append(chatInputWrap, $('button.dev-button.secondary', {}, 'ðŸ“Ž')) as HTMLButtonElement;
 		attachBtn.title = localize('othcloud.dev.attachImage', 'Attach an image');
 		attachBtn.onclick = () => fileInput.click();
 		const chatInput = append(chatInputWrap, $('input')) as HTMLInputElement;
-		chatInput.placeholder = localize('othcloud.dev.chatPlaceholder', 'Write a message — prefix with /check to add a checklist item');
+		chatInput.placeholder = localize('othcloud.dev.chatPlaceholder', 'Write a message â€” prefix with /check to add a checklist item');
 		const sendBtn = append(chatInputWrap, $('button.dev-button', {}, localize('othcloud.dev.send', 'Send'))) as HTMLButtonElement;
 
-		// Source (jump-to-file) — only rendered when the task has one
+		// Source (jump-to-file) â€” only rendered when the task has one
 		const sourceSection = append(aside, $('.dev-aside-section'));
 		append(sourceSection, $('h4', {}, localize('othcloud.dev.source', 'Source')));
 		const sourceContent = append(sourceSection, $('div'));
@@ -787,7 +769,7 @@ export class DevelopersPage extends EditorPane {
 			const ta = append(descView, $('textarea.dev-textarea')) as HTMLTextAreaElement;
 			ta.rows = 6;
 			ta.value = task.description;
-			ta.placeholder = localize('othcloud.dev.descPlaceholder', 'Add details, links, anything useful…');
+			ta.placeholder = localize('othcloud.dev.descPlaceholder', 'Add details, links, anything usefulâ€¦');
 			const row = append(descView, $('.dev-desc-edit-actions'));
 			const save = append(row, $('button.dev-button', {}, localize('othcloud.dev.save', 'Save'))) as HTMLButtonElement;
 			const cancel = append(row, $('button.dev-button.secondary', {}, localize('othcloud.dev.cancel', 'Cancel'))) as HTMLButtonElement;
@@ -814,9 +796,9 @@ export class DevelopersPage extends EditorPane {
 		const loadHeader = async () => {
 			task = await DevelopersClient.getTask(this.jwt!, taskId);
 			titleEl.textContent = task.title;
-			const metaText = task.assigneeUsername
-				? localize('othcloud.dev.taskMetaFull', '#{0} · by {1} · for {2} · {3}', String(task.id), task.creatorUsername, task.assigneeUsername, task.status)
-				: localize('othcloud.dev.taskMetaFullNoAssignee', '#{0} · by {1} · {2}', String(task.id), task.creatorUsername, task.status);
+			const metaText = task.assigneeEmail
+				? localize('othcloud.dev.taskMetaFull', '#{0} Â· by {1} Â· for {2} Â· {3}', String(task.id), task.creatorEmail, task.assigneeEmail, task.status)
+				: localize('othcloud.dev.taskMetaFullNoAssignee', '#{0} Â· by {1} Â· {2}', String(task.id), task.creatorEmail, task.status);
 			metaEl.textContent = metaText;
 			renderDescription();
 			renderCommits();
@@ -866,7 +848,7 @@ export class DevelopersPage extends EditorPane {
 				if (m.authorId === this.user!.id) {
 					node.classList.add('mine');
 				}
-				append(node, $('.author', {}, `${m.authorUsername} · ${formatTime(m.createdAt)}`));
+				append(node, $('.author', {}, `${m.authorEmail} Â· ${formatTime(m.createdAt)}`));
 				if (m.body) {
 					append(node, $('.body', {}, m.body));
 				}
@@ -918,7 +900,7 @@ export class DevelopersPage extends EditorPane {
 			for (const a of items) {
 				const row = append(activityList, $('.dev-activity-row'));
 				append(row, $('span.who', {}, a.actorName));
-				append(row, $('span', {}, ' ' + describeActivity(a) + ' · ' + formatTime(a.createdAt)));
+				append(row, $('span', {}, ' ' + describeActivity(a) + ' Â· ' + formatTime(a.createdAt)));
 			}
 		};
 
@@ -1028,7 +1010,7 @@ export class DevelopersPage extends EditorPane {
 						}
 					};
 				}
-				const del = append(row, $('button.dev-back', {}, '×')) as HTMLButtonElement;
+				const del = append(row, $('button.dev-back', {}, 'Ã—')) as HTMLButtonElement;
 				del.title = localize('othcloud.dev.unlinkCommit', 'Unlink');
 				del.onclick = async () => {
 					del.disabled = true;
@@ -1161,7 +1143,7 @@ export class DevelopersPage extends EditorPane {
 		const body = append(this.mainArea, $('.dev-tasks-body'));
 		const load = async () => {
 			clearNode(body);
-			append(body, $('.dev-empty', {}, localize('othcloud.dev.loading', 'Loading…')));
+			append(body, $('.dev-empty', {}, localize('othcloud.dev.loading', 'Loadingâ€¦')));
 			try {
 				const services = await DevelopersClient.listServices(this.jwt!);
 				clearNode(body);
@@ -1198,7 +1180,7 @@ export class DevelopersPage extends EditorPane {
 
 					const repoCell = append(row, $('td.dev-col-repos'));
 					if (s.repos.length === 0) {
-						append(repoCell, $('span.dev-col-repos-empty', {}, '—'));
+						append(repoCell, $('span.dev-col-repos-empty', {}, 'â€”'));
 					} else {
 						const primary = s.repos[0];
 						const link = append(repoCell, $('a')) as HTMLAnchorElement;
@@ -1215,7 +1197,7 @@ export class DevelopersPage extends EditorPane {
 						}
 					}
 
-					append(row, $('td', {}, s.creatorUsername));
+					append(row, $('td', {}, s.creatorEmail));
 					append(row, $('td.dev-col-updated', {}, formatTime(s.updatedAt)));
 				}
 			} catch (err) {
@@ -1367,9 +1349,9 @@ export class DevelopersPage extends EditorPane {
 		const aside = append(wrap, $('.dev-detail-aside'));
 
 		const header = append(main, $('.dev-detail-header'));
-		const back = append(header, $('button.dev-back', {}, '← ' + localize('othcloud.dev.backToServices', 'Back to services'))) as HTMLButtonElement;
+		const back = append(header, $('button.dev-back', {}, 'â† ' + localize('othcloud.dev.backToServices', 'Back to services'))) as HTMLButtonElement;
 		back.onclick = () => { this.view = { kind: 'services' }; void this.renderMain(); };
-		const titleEl = append(header, $('h2', {}, '…'));
+		const titleEl = append(header, $('h2', {}, 'â€¦'));
 		const metaEl = append(header, $('.meta', {}, ''));
 
 		// Description section (editable, mirroring task detail)
@@ -1447,7 +1429,7 @@ export class DevelopersPage extends EditorPane {
 					e.preventDefault();
 					void this.openInInternalBrowser(r.url);
 				};
-				const del = append(row, $('button.dev-back', {}, '×')) as HTMLButtonElement;
+				const del = append(row, $('button.dev-back', {}, 'Ã—')) as HTMLButtonElement;
 				del.title = localize('othcloud.dev.unlinkRepo', 'Unlink');
 				del.onclick = async () => {
 					del.disabled = true;
@@ -1477,7 +1459,7 @@ export class DevelopersPage extends EditorPane {
 				for (const t of tasks) {
 					const row = append(tasksList, $('button.dev-sidebar-task'));
 					append(row, $('.dev-sidebar-task-title', {}, t.title));
-					append(row, $('.dev-sidebar-task-meta', {}, `#${t.id} · ${t.status}` + (t.assigneeUsername ? ` · ${t.assigneeUsername}` : '')));
+					append(row, $('.dev-sidebar-task-meta', {}, `#${t.id} Â· ${t.status}` + (t.assigneeEmail ? ` Â· ${t.assigneeEmail}` : '')));
 					row.onclick = () => {
 						this.view = { kind: 'task', taskId: t.id };
 						void this.renderMain();
@@ -1493,7 +1475,7 @@ export class DevelopersPage extends EditorPane {
 		const loadHeader = async () => {
 			service = await DevelopersClient.getService(this.jwt!, serviceId);
 			titleEl.textContent = service.title;
-			metaEl.textContent = localize('othcloud.dev.serviceMeta', '#{0} · by {1}', String(service.id), service.creatorUsername);
+			metaEl.textContent = localize('othcloud.dev.serviceMeta', '#{0} Â· by {1}', String(service.id), service.creatorEmail);
 			renderDescription();
 			renderRepos();
 		};
@@ -1536,8 +1518,8 @@ export class DevelopersPage extends EditorPane {
 			const users = await DevelopersClient.listUsers(this.jwt!);
 			for (const u of users) {
 				const opt = document.createElement('option');
-				opt.value = u.username;
-				opt.textContent = u.username + (u.id === this.user!.id ? ' (you)' : '');
+				opt.value = u.email;
+				opt.textContent = u.email + (u.id === this.user!.id ? ' (you)' : '');
 				assigneeSelect.appendChild(opt);
 			}
 		} catch { /* ignore */ }
@@ -1662,7 +1644,7 @@ function formatDuration(totalSec: number): string {
 }
 
 /**
- * Minimal markdown renderer: splits on ```language\n…\n``` fences and renders
+ * Minimal markdown renderer: splits on ```language\nâ€¦\n``` fences and renders
  * each block as a styled <pre><code>; everything else becomes plain text
  * paragraphs. We intentionally avoid the full markdown service to keep the
  * surface tiny and predictable.

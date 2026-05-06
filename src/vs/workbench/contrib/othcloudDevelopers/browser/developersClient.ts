@@ -5,7 +5,7 @@
 
 // TODO: promote the server URL to a user-configurable setting.
 // The access token is supplied at runtime by the user (entered in the UI,
-// persisted via VSCode storage) — see DevelopersPage.
+// persisted via VSCode storage) â€” see DevelopersPage.
 export const DEVELOPERS_SERVER_URL = 'http://localhost:8787';
 
 let accessToken: string | null = null;
@@ -26,8 +26,11 @@ export class DevelopersAccessTokenMissingError extends Error {
 }
 
 export interface DevUser {
-	id: number;
-	username: string;
+	id: string;
+	email: string;
+	name: string;
+	role: string;
+	orgRole?: string;
 }
 
 export interface AuthResponse {
@@ -40,10 +43,12 @@ export interface DevTask {
 	title: string;
 	description: string;
 	status: string;
-	creatorId: number;
-	creatorUsername: string;
-	assigneeId?: number;
-	assigneeUsername?: string;
+	creatorId: string;
+	creatorEmail: string;
+	creatorName: string;
+	assigneeId?: string;
+	assigneeEmail?: string;
+	assigneeName?: string;
 	serviceId?: number;
 	commits: DevCommit[];
 	source?: DevTaskSource;
@@ -64,7 +69,7 @@ export interface DevCommit {
 	url: string;
 	repoFullName?: string;
 	message?: string;
-	linkedBy: number;
+	linkedBy: string;
 	linkedByName: string;
 	linkedAt: string;
 }
@@ -72,8 +77,9 @@ export interface DevCommit {
 export interface DevTimeEntry {
 	id: number;
 	taskId: number;
-	userId: number;
-	userUsername: string;
+	userId: string;
+	userEmail: string;
+	userName: string;
 	startAt: string;
 	endAt?: string;
 	durationSec: number;
@@ -104,8 +110,9 @@ export interface DevService {
 	title: string;
 	description: string;
 	repos: DevRepo[];
-	creatorId: number;
-	creatorUsername: string;
+	creatorId: string;
+	creatorEmail: string;
+	creatorName: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -113,8 +120,9 @@ export interface DevService {
 export interface DevMessage {
 	id: number;
 	taskId: number;
-	authorId: number;
-	authorUsername: string;
+	authorId: string;
+	authorEmail: string;
+	authorName: string;
 	body: string;
 	createdAt: string;
 	attachmentId?: number;
@@ -127,7 +135,7 @@ export interface DevChecklistItem {
 	taskId: number;
 	label: string;
 	done: boolean;
-	createdBy: number;
+	createdBy: string;
 	createdByName: string;
 	createdAt: string;
 }
@@ -135,7 +143,7 @@ export interface DevChecklistItem {
 export interface DevActivity {
 	id: number;
 	taskId: number;
-	actorId: number;
+	actorId: string;
 	actorName: string;
 	kind: string;
 	detail: string;
@@ -176,17 +184,10 @@ async function request<T>(
 }
 
 export const DevelopersClient = {
-	async register(username: string, password: string): Promise<AuthResponse> {
-		return request<AuthResponse>('/api/auth/register', {
-			method: 'POST',
-			body: JSON.stringify({ username, password }),
-		});
-	},
-
-	async login(username: string, password: string): Promise<AuthResponse> {
+	async login(email: string, password: string): Promise<AuthResponse> {
 		return request<AuthResponse>('/api/auth/login', {
 			method: 'POST',
-			body: JSON.stringify({ username, password }),
+			body: JSON.stringify({ email, password }),
 		});
 	},
 
@@ -207,13 +208,13 @@ export const DevelopersClient = {
 		jwt: string,
 		title: string,
 		description: string,
-		assigneeUsername?: string,
+		assigneeEmail?: string,
 		serviceId?: number,
 		source?: DevTaskSource,
 	): Promise<DevTask> {
 		return request<DevTask>('/api/tasks', {
 			method: 'POST', jwt,
-			body: JSON.stringify({ title, description, assigneeUsername: assigneeUsername ?? '', serviceId, source }),
+			body: JSON.stringify({ title, description, assigneeEmail: assigneeEmail ?? '', serviceId, source }),
 		});
 	},
 

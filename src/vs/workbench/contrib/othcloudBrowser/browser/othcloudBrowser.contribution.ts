@@ -14,28 +14,19 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IExternalOpener, IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
-import { IEditorGroupsService, IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
 
 const BROWSER_EDITOR_ID = 'workbench.editor.browser';
 
 
-function findExistingBrowserGroup(editorGroupsService: IEditorGroupsService): IEditorGroup | undefined {
-	for (const group of editorGroupsService.groups) {
-		if (group.editors.some(e => e.resource?.scheme === Schemas.vscodeBrowser)) {
-			return group;
-		}
-	}
-	return undefined;
-}
-
 async function openBrowserTab(
 	editorService: IEditorService,
 	editorGroupsService: IEditorGroupsService,
 	url: string | undefined,
 ): Promise<void> {
-	const targetGroup = findExistingBrowserGroup(editorGroupsService) ?? editorGroupsService.activeGroup;
+	const targetGroup = editorGroupsService.activeGroup;
 
 	await editorService.openEditor(
 		{ resource: BrowserViewUri.forUrl(url), options: { pinned: !!url } },
@@ -56,10 +47,6 @@ registerAction2(class OpenBrowserAction extends Action2 {
 			f1: true,
 			menu: [{
 				id: MenuId.EditorTitle,
-				group: 'navigation',
-				order: 99999,
-			}, {
-				id: MenuId.CompactWindowEditorTitle,
 				group: 'navigation',
 				order: 99999,
 			}],

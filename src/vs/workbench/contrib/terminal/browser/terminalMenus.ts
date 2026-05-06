@@ -718,7 +718,7 @@ export function setupTerminalMenus(): void {
 		group: '2_files'
 	});
 
-	for (const menuId of [MenuId.EditorTitle, MenuId.CompactWindowEditorTitle]) {
+	for (const menuId of [MenuId.EditorTitle]) {
 		MenuRegistry.appendMenuItem(menuId, {
 			command: {
 				id: TerminalCommandId.CreateTerminalEditorSameGroup,

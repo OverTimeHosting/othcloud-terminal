@@ -888,7 +888,7 @@ export function registerTerminalActions() {
 				when: ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
 				isHiddenByDefault: true
 			},
-			...[MenuId.EditorTitle, MenuId.CompactWindowEditorTitle].map(id => ({
+			...[MenuId.EditorTitle].map(id => ({
 				id,
 				group: '1_shellIntegration',
 				order: 4,
@@ -917,7 +917,7 @@ export function registerTerminalActions() {
 				when: ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
 				isHiddenByDefault: true
 			},
-			...[MenuId.EditorTitle, MenuId.CompactWindowEditorTitle].map(id => ({
+			...[MenuId.EditorTitle].map(id => ({
 				id,
 				group: '1_shellIntegration',
 				order: 5,

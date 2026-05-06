@@ -1,0 +1,69 @@
+{
+	"name": "othcloud-discord-presence",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "1.0.0",
+	"publisher": "othcloud",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.5.0"
+	},
+	"capabilities": {
+		"virtualWorkspaces": true,
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension",
+	"scripts": {
+		"compile": "gulp compile-extension:othcloud-discord-presence",
+		"watch": "gulp watch-extension:othcloud-discord-presence"
+	},
+	"contributes": {
+		"configuration": {
+			"title": "Othcloud Discord Presence",
+			"properties": {
+				"othcloud.discord.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.enabled%"
+				},
+				"othcloud.discord.applicationName": {
+					"type": "string",
+					"default": "Othcloud Terminal",
+					"description": "%config.applicationName%"
+				},
+				"othcloud.discord.largeImage": {
+					"type": "string",
+					"default": "othcloud-logo",
+					"description": "%config.largeImage%"
+				},
+				"othcloud.discord.idleText": {
+					"type": "string",
+					"default": "Idle",
+					"description": "%config.idleText%"
+				},
+				"othcloud.discord.showFileName": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.showFileName%"
+				},
+				"othcloud.discord.showWorkspace": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.showWorkspace%"
+				}
+			}
+		}
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/microsoft/vscode.git"
+	}
+}

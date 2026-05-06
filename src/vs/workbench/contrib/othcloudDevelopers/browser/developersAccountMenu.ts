@@ -14,15 +14,18 @@ const OPEN_DEVELOPERS_COMMAND = 'othcloud.developers.open';
 const SIGN_OUT_COMMAND = 'othcloud.developers.signOut';
 
 interface CachedUser {
-	id: number;
-	username: string;
+	id: string;
+	email: string;
+	name?: string;
+	role?: string;
+	orgRole?: string;
 }
 
 /**
  * Owns the entries shown in VSCode's Accounts dropdown (top-right when the
  * activity bar is on top, bottom-left otherwise) for the othcloud Developer
  * account. Re-creates the entries whenever the cached user changes so the
- * username appears directly in the menu label.
+ * email appears directly in the menu label.
  */
 export class DevelopersAccountMenuContribution extends Disposable implements IWorkbenchContribution {
 
@@ -64,7 +67,7 @@ export class DevelopersAccountMenuContribution extends Disposable implements IWo
 				order: 1,
 				command: {
 					id: OPEN_DEVELOPERS_COMMAND,
-					title: localize('othcloud.dev.menuSignedInAs', 'othcloud Developer: {0}', user.username),
+					title: localize('othcloud.dev.menuSignedInAs', 'othcloud Developer: {0}', user.email),
 				},
 			});
 			items.push({

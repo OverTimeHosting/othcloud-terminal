@@ -1,0 +1,10 @@
+{
+	"displayName": "Othcloud Discord Presence",
+	"description": "Show your Othcloud Terminal activity in Discord via Rich Presence.",
+	"config.enabled": "Show Othcloud Terminal activity in Discord.",
+	"config.applicationName": "Name shown next to the activity in Discord.",
+	"config.largeImage": "Large image asset key. Upload an image under your Discord application's Rich Presence Assets and reference it by name.",
+	"config.idleText": "Text shown when no editor is focused.",
+	"config.showFileName": "Include the active file name in the presence details.",
+	"config.showWorkspace": "Include the workspace name in the presence state line."
+}
