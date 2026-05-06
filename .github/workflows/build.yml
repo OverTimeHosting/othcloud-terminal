@@ -126,6 +126,10 @@ jobs:
           npm_config_audit: "false"
           npm_config_fund: "false"
           npm_config_jobs: "max"
+          # Lifts GitHub anonymous API rate limit (60/hr/IP) to the
+          # authenticated 5000/hr quota — required for @vscode/ripgrep's
+          # postinstall, which 403s otherwise.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Cache Electron and built-in extensions
@@ -139,6 +143,8 @@ jobs:
             build-deps-${{ runner.os }}-x64-
 
       - name: Download Electron and built-in extensions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node build/lib/electron.ts
           node build/lib/builtInExtensions.ts
@@ -254,6 +260,10 @@ jobs:
           npm_config_audit: "false"
           npm_config_fund: "false"
           npm_config_jobs: "max"
+          # Lifts GitHub anonymous API rate limit (60/hr/IP) to the
+          # authenticated 5000/hr quota — required for @vscode/ripgrep's
+          # postinstall, which 403s otherwise.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Cache built-in extensions
@@ -265,6 +275,8 @@ jobs:
             builtin-extensions-
 
       - name: Download built-in extensions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node build/lib/builtInExtensions.ts
 
       - name: Build remote server (vscode-reh-linux-x64-min)

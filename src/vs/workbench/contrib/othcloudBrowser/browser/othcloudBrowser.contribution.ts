@@ -11,7 +11,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IExternalOpener, IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
@@ -21,7 +20,6 @@ import { BrowserViewUri } from '../../../../platform/browserView/common/browserV
 
 const BROWSER_EDITOR_ID = 'workbench.editor.browser';
 
-const BROWSER_OPEN_COMMAND = 'workbench.action.browser.open';
 
 function findExistingBrowserGroup(editorGroupsService: IEditorGroupsService): IEditorGroup | undefined {
 	for (const group of editorGroupsService.groups) {
@@ -177,8 +175,6 @@ class OthcloudBrowserExternalOpener extends Disposable implements IWorkbenchCont
 
 	constructor(
 		@IOpenerService openerService: IOpenerService,
-		@ICommandService private readonly commandService: ICommandService,
-		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
 		@IEditorService private readonly editorService: IEditorService,
 	) {
 		super();
@@ -197,17 +193,20 @@ class OthcloudBrowserExternalOpener extends Disposable implements IWorkbenchCont
 					return false;
 				}
 
+				// Always open in a floating auxiliary window so external URLs
+				// don't pile up tabs inside the user's editor area.
 				try {
-					const existing = findExistingBrowserGroup(this.editorGroupsService);
-					if (existing) {
-						await this.editorService.openEditor({ resource: BrowserViewUri.forUrl(href) }, existing.id);
-					} else {
-						await this.commandService.executeCommand(BROWSER_OPEN_COMMAND, { url: href, openToSide: true });
-					}
-					const group = findExistingBrowserGroup(this.editorGroupsService);
-					if (group && !group.isLocked) {
-						group.lock(true);
-					}
+					await this.editorService.openEditor({
+						resource: BrowserViewUri.forUrl(href),
+						options: {
+							pinned: true,
+							auxiliary: {
+								compact: false,
+								alwaysOnTop: false,
+								bounds: { width: 1024, height: 720 },
+							},
+						},
+					}, AUX_WINDOW_GROUP);
 					return true;
 				} catch {
 					return false;

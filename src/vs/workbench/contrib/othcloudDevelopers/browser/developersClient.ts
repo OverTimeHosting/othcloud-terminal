@@ -86,6 +86,12 @@ export interface DevTaskTime {
 	entries: DevTimeEntry[];
 }
 
+export interface DevStatus {
+	key: string;
+	label: string;
+	order: number;
+}
+
 export interface DevRepo {
 	id: number;
 	name: string;
@@ -244,6 +250,21 @@ export const DevelopersClient = {
 		await request<void>(`/api/services/${serviceId}/repos/${repoId}`, {
 			method: 'DELETE', jwt,
 		});
+	},
+
+	async listStatuses(jwt: string): Promise<DevStatus[]> {
+		return request<DevStatus[]>('/api/statuses', { method: 'GET', jwt });
+	},
+
+	async addStatus(jwt: string, key: string, label: string, order: number): Promise<DevStatus> {
+		return request<DevStatus>('/api/statuses', {
+			method: 'POST', jwt,
+			body: JSON.stringify({ key, label, order }),
+		});
+	},
+
+	async deleteStatus(jwt: string, key: string): Promise<void> {
+		await request<void>(`/api/statuses/${encodeURIComponent(key)}`, { method: 'DELETE', jwt });
 	},
 
 	async getTask(jwt: string, id: number): Promise<DevTask> {

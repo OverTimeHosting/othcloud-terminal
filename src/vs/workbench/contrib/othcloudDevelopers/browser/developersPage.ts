@@ -21,15 +21,13 @@ const STORAGE_NEW_TASK_PREFILL = 'othcloud.developers.newTaskPrefill';
 import {
 	DevelopersClient, DevelopersApiError, DevelopersAccessTokenMissingError,
 	setAccessToken, getAccessToken,
-	DevTask, DevMessage, DevChecklistItem, DevActivity, DevUser, DevService
+	DevTask, DevMessage, DevChecklistItem, DevActivity, DevUser, DevService, DevStatus
 } from './developersClient.js';
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
 
 const STORAGE_ACCESS_TOKEN = 'othcloud.developers.accessToken';
@@ -68,7 +66,6 @@ export class DevelopersPage extends EditorPane {
 		@IQuickInputService private readonly _quickInput: IQuickInputService,
 		@INotificationService private readonly _notification: INotificationService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 	) {
 		super(DevelopersPage.ID, group, telemetryService, themeService, _storage);
 		const storedToken = this._storage.get(STORAGE_ACCESS_TOKEN, StorageScope.APPLICATION) ?? null;
@@ -116,21 +113,19 @@ export class DevelopersPage extends EditorPane {
 	 * we don't pile up new editor groups.
 	 */
 	private async openInInternalBrowser(url: string): Promise<void> {
-		const targetGroup = (() => {
-			for (const g of this._editorGroupsService.groups) {
-				if (g.editors.some(e => e.resource?.scheme === Schemas.vscodeBrowser)) {
-					return g;
-				}
-			}
-			return this._editorGroupsService.activeGroup;
-		})();
-		await this._editorService.openEditor(
-			{ resource: BrowserViewUri.forUrl(url), options: { pinned: true } },
-			targetGroup.id,
-		);
-		if (!targetGroup.isLocked) {
-			targetGroup.lock(true);
-		}
+		// Open repo / commit / source links in a fresh floating window so they
+		// don't pile tabs into the user's editor area.
+		await this._editorService.openEditor({
+			resource: BrowserViewUri.forUrl(url),
+			options: {
+				pinned: true,
+				auxiliary: {
+					compact: false,
+					alwaysOnTop: false,
+					bounds: { width: 1024, height: 720 },
+				},
+			},
+		}, AUX_WINDOW_GROUP);
 	}
 
 	protected createEditor(parent: HTMLElement): void {
@@ -389,7 +384,9 @@ export class DevelopersPage extends EditorPane {
 
 	// ---------- Kanban board ----------
 
-	private static readonly KANBAN_COLUMNS: ReadonlyArray<{ status: string; label: string }> = [
+	// Updated on each renderTasksList load. The fallback covers the very first
+	// render before the API responds, and any rare mid-render errors.
+	private statuses: ReadonlyArray<{ status: string; label: string }> = [
 		{ status: 'open', label: 'Open' },
 		{ status: 'in_progress', label: 'In Progress' },
 		{ status: 'done', label: 'Done' },
@@ -418,13 +415,20 @@ export class DevelopersPage extends EditorPane {
 		const load = async () => {
 			clearNode(body);
 			try {
-				// Fetch services in parallel so we can show "Service: <name>"
-				// chips on tasks. We swallow service-list errors so the tasks
-				// view still renders even if the user has no service access.
-				const [tasks, services] = await Promise.all([
+				// Fetch services + statuses in parallel so we can show service
+				// chips and dynamic kanban columns. Errors on either fall back
+				// to empty/default so the tasks view still renders.
+				const [tasks, services, statuses] = await Promise.all([
 					DevelopersClient.listTasks(this.jwt!),
 					DevelopersClient.listServices(this.jwt!).catch(() => [] as DevService[]),
+					DevelopersClient.listStatuses(this.jwt!).catch(() => [] as DevStatus[]),
 				]);
+				if (statuses.length > 0) {
+					this.statuses = statuses
+						.slice()
+						.sort((a, b) => a.order - b.order)
+						.map(s => ({ status: s.key, label: s.label }));
+				}
 				const serviceMap = new Map<number, string>(services.map(s => [s.id, s.title]));
 				clearNode(body);
 				if (this.tasksLayout === 'table') {
@@ -477,14 +481,14 @@ export class DevelopersPage extends EditorPane {
 	private renderTasksKanban(parent: HTMLElement, tasks: DevTask[], serviceMap: Map<number, string>, reload: () => Promise<void>): void {
 		const board = append(parent, $('.dev-kanban'));
 		const buckets = new Map<string, DevTask[]>();
-		for (const col of DevelopersPage.KANBAN_COLUMNS) {
+		for (const col of this.statuses) {
 			buckets.set(col.status, []);
 		}
 		for (const t of tasks) {
 			const status = buckets.has(t.status) ? t.status : 'open';
 			buckets.get(status)!.push(t);
 		}
-		for (const col of DevelopersPage.KANBAN_COLUMNS) {
+		for (const col of this.statuses) {
 			this.renderKanbanColumn(board, col.status, col.label, buckets.get(col.status) ?? [], serviceMap, reload);
 		}
 	}
@@ -524,7 +528,7 @@ export class DevelopersPage extends EditorPane {
 
 			const statusTd = append(row, $('td'));
 			const select = append(statusTd, $('select.dev-select')) as HTMLSelectElement;
-			for (const col of DevelopersPage.KANBAN_COLUMNS) {
+			for (const col of this.statuses) {
 				const opt = document.createElement('option');
 				opt.value = col.status;
 				opt.textContent = col.label;
@@ -597,7 +601,7 @@ export class DevelopersPage extends EditorPane {
 		}
 
 		const moves = append(card, $('.dev-kanban-moves'));
-		for (const target of DevelopersPage.KANBAN_COLUMNS) {
+		for (const target of this.statuses) {
 			if (target.status === status) { continue; }
 			const btn = append(moves, $('button.dev-kanban-move', {}, '→ ' + target.label)) as HTMLButtonElement;
 			btn.onclick = async (e) => {

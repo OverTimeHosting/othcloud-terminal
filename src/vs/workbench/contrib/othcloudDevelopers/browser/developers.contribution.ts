@@ -19,6 +19,9 @@ import { DevelopersInput } from './developersInput.js';
 import { DevelopersPage } from './developersPage.js';
 import { DevelopersAccountMenuContribution } from './developersAccountMenu.js';
 import { DevelopersActivityBarContribution, OthcloudActivityBarEnabledContext, STORAGE_ACTIVITY_BAR_ENABLED } from './developersActivityBar.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { DevelopersClient, DevStatus, setAccessToken } from './developersClient.js';
 
 const OPEN_DEVELOPERS_COMMAND = 'othcloud.developers.open';
 
@@ -254,6 +257,102 @@ registerAction2(class SignOutAction extends Action2 {
 		// user doesn't have to re-enter the server password to sign back in.
 		storage.remove('othcloud.developers.jwt', StorageScope.APPLICATION);
 		storage.remove('othcloud.developers.user', StorageScope.APPLICATION);
+	}
+});
+
+registerAction2(class ManageStatusesAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.developers.manageStatuses',
+			title: localize2('othcloud.developers.manageStatuses', 'Manage Task Statuses'),
+			category: localize2('othcloud.developers.category', 'Developers'),
+			f1: true,
+			menu: [{
+				id: MenubarDevelopersMenu,
+				group: '2_settings',
+				order: 2,
+			}],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const storage = accessor.get(IStorageService);
+		const quickInput = accessor.get(IQuickInputService);
+		const notif = accessor.get(INotificationService);
+
+		const jwt = storage.get('othcloud.developers.jwt', StorageScope.APPLICATION);
+		const tok = storage.get('othcloud.developers.accessToken', StorageScope.APPLICATION);
+		if (!jwt || !tok) {
+			notif.notify({ severity: Severity.Warning, message: localize('othcloud.developers.signInFirst', 'Sign in to othcloud Developer first.') });
+			return;
+		}
+		setAccessToken(tok);
+
+		const showPicker = async () => {
+			let statuses: DevStatus[] = [];
+			try {
+				statuses = await DevelopersClient.listStatuses(jwt);
+			} catch (err) {
+				notif.notify({ severity: Severity.Error, message: String((err as Error).message ?? err) });
+				return;
+			}
+			statuses.sort((a, b) => a.order - b.order);
+
+			const items: (IQuickPickItem & { kind: 'add' | 'status'; status?: DevStatus })[] = [
+				{ label: '$(add) Add new status…', kind: 'add' },
+				...statuses.map(s => ({
+					label: s.label,
+					description: s.key === 'open' ? '(default — cannot remove)' : s.key,
+					kind: 'status' as const,
+					status: s,
+				})),
+			];
+			const picked = await quickInput.pick(items, {
+				placeHolder: localize('othcloud.developers.statusPick', 'Pick a status to remove, or add a new one'),
+				matchOnDescription: true,
+			});
+			if (!picked) { return; }
+
+			if (picked.kind === 'add') {
+				const label = await quickInput.input({
+					prompt: localize('othcloud.developers.statusLabel', 'Display name for the new status (e.g. "Blocked")'),
+				});
+				if (!label) { return; }
+				const key = await quickInput.input({
+					prompt: localize('othcloud.developers.statusKey', 'Internal key (lowercase, a-z 0-9 _ -)'),
+					value: label.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+				});
+				if (!key) { return; }
+				const order = statuses.length;
+				try {
+					await DevelopersClient.addStatus(jwt, key, label, order);
+					notif.notify({ severity: Severity.Info, message: localize('othcloud.developers.statusAdded', 'Status "{0}" added.', label) });
+					storage.store('othcloud.developers.tasksRev', String(Date.now()), StorageScope.APPLICATION, StorageTarget.MACHINE);
+				} catch (err) {
+					notif.notify({ severity: Severity.Error, message: String((err as Error).message ?? err) });
+				}
+				return;
+			}
+
+			const target = picked.status!;
+			if (target.key === 'open') {
+				notif.notify({ severity: Severity.Warning, message: localize('othcloud.developers.statusOpenLocked', 'The default "Open" status cannot be removed.') });
+				return;
+			}
+			const confirm = await quickInput.pick(
+				[{ label: 'Remove', description: 'Tasks using it will move back to "Open"' }, { label: 'Cancel' }],
+				{ placeHolder: localize('othcloud.developers.statusRemoveConfirm', 'Remove "{0}"?', target.label) },
+			);
+			if (!confirm || confirm.label !== 'Remove') { return; }
+			try {
+				await DevelopersClient.deleteStatus(jwt, target.key);
+				notif.notify({ severity: Severity.Info, message: localize('othcloud.developers.statusRemoved', 'Status "{0}" removed.', target.label) });
+				storage.store('othcloud.developers.tasksRev', String(Date.now()), StorageScope.APPLICATION, StorageTarget.MACHINE);
+			} catch (err) {
+				notif.notify({ severity: Severity.Error, message: String((err as Error).message ?? err) });
+			}
+		};
+		await showPicker();
 	}
 });
 

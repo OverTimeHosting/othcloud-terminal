@@ -106,6 +106,10 @@ func main() {
 	authed.HandleFunc("POST /api/tasks/{id}/time/stop", srv.StopTaskTimer)
 	authed.HandleFunc("GET /api/me/active-timer", srv.GetActiveTimer)
 
+	authed.HandleFunc("GET /api/statuses", srv.ListStatuses)
+	authed.HandleFunc("POST /api/statuses", srv.AddStatus)
+	authed.HandleFunc("DELETE /api/statuses/{key}", srv.DeleteStatus)
+
 	authed.HandleFunc("GET /api/services", srv.ListServices)
 	authed.HandleFunc("POST /api/services", srv.CreateService)
 	authed.HandleFunc("GET /api/services/{id}", srv.GetService)

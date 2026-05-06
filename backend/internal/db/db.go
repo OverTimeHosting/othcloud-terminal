@@ -22,6 +22,7 @@ type DB struct {
 	TaskAttachments  *mongo.Collection
 	TaskTimeEntries  *mongo.Collection
 	Services         *mongo.Collection
+	Statuses         *mongo.Collection
 }
 
 func Open(ctx context.Context, uri, dbName string) (*DB, error) {
@@ -49,6 +50,7 @@ func Open(ctx context.Context, uri, dbName string) (*DB, error) {
 		TaskAttachments:  d.Collection("task_attachments"),
 		TaskTimeEntries:  d.Collection("task_time_entries"),
 		Services:         d.Collection("services"),
+		Statuses:         d.Collection("statuses"),
 	}
 	if err := db.ensureIndexes(connectCtx); err != nil {
 		return nil, fmt.Errorf("ensure indexes: %w", err)
@@ -99,6 +101,39 @@ func (d *DB) ensureIndexes(ctx context.Context) error {
 		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "end_at", Value: 1}}},
 	}); err != nil {
 		return err
+	}
+	if _, err := d.Statuses.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "order", Value: 1}},
+	}); err != nil {
+		return err
+	}
+	if err := d.seedDefaultStatuses(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+// seedDefaultStatuses ensures the three baseline columns (open / in_progress
+// / done) exist. Idempotent — only inserts what's missing.
+func (d *DB) seedDefaultStatuses(ctx context.Context) error {
+	defaults := []struct {
+		Key   string
+		Label string
+		Order int
+	}{
+		{"open", "Open", 0},
+		{"in_progress", "In Progress", 1},
+		{"done", "Done", 2},
+	}
+	for _, def := range defaults {
+		_, err := d.Statuses.UpdateOne(ctx,
+			bson.M{"_id": def.Key},
+			bson.M{"$setOnInsert": bson.M{"label": def.Label, "order": def.Order}},
+			options.UpdateOne().SetUpsert(true),
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
