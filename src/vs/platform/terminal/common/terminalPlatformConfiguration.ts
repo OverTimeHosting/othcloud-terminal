@@ -190,13 +190,13 @@ const terminalPlatformConfiguration: IConfigurationNode = {
 					icon: Codicon.terminalGitBash.id,
 				},
 				'Claude': {
-					path: ['claude.cmd', 'claude.exe', 'claude'],
-					args: [],
+					path: ['${env:windir}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'],
+					args: ['-NoLogo', '-NoProfile', '-Command', '$env:PATH = "$HOME\\.local\\bin;" + $env:PATH; if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { iwr -useb https://claude.ai/install.ps1 | iex }; & claude'],
 					icon: Codicon.sparkle.id,
 				},
 				'Claude (No Restrictions)': {
-					path: ['claude.cmd', 'claude.exe', 'claude'],
-					args: ['--dangerously-skip-permissions'],
+					path: ['${env:windir}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'],
+					args: ['-NoLogo', '-NoProfile', '-Command', '$env:PATH = "$HOME\\.local\\bin;" + $env:PATH; if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { iwr -useb https://claude.ai/install.ps1 | iex }; $env:IS_SANDBOX = "1"; & claude --dangerously-skip-permissions'],
 					icon: Codicon.copilotWarning.id,
 				}
 			},
@@ -264,13 +264,13 @@ const terminalPlatformConfiguration: IConfigurationNode = {
 					icon: Codicon.terminalPowershell.id
 				},
 				'Claude': {
-					path: 'claude',
-					args: [],
+					path: 'bash',
+					args: ['-lc', 'export PATH="$HOME/.local/bin:$PATH"; command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash; exec claude'],
 					icon: Codicon.sparkle.id
 				},
 				'Claude (No Restrictions)': {
-					path: 'claude',
-					args: ['--dangerously-skip-permissions'],
+					path: 'bash',
+					args: ['-lc', 'export PATH="$HOME/.local/bin:$PATH"; command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash; exec env IS_SANDBOX=1 claude --dangerously-skip-permissions'],
 					icon: Codicon.copilotWarning.id
 				}
 			},
@@ -324,13 +324,13 @@ const terminalPlatformConfiguration: IConfigurationNode = {
 					icon: Codicon.terminalPowershell.id
 				},
 				'Claude': {
-					path: 'claude',
-					args: [],
+					path: 'bash',
+					args: ['-lc', 'export PATH="$HOME/.local/bin:$PATH"; command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash; exec claude'],
 					icon: Codicon.sparkle.id
 				},
 				'Claude (No Restrictions)': {
-					path: 'claude',
-					args: ['--dangerously-skip-permissions'],
+					path: 'bash',
+					args: ['-lc', 'export PATH="$HOME/.local/bin:$PATH"; command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash; exec env IS_SANDBOX=1 claude --dangerously-skip-permissions'],
 					icon: Codicon.copilotWarning.id
 				}
 			},

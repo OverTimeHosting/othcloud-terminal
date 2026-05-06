@@ -27523,11 +27523,6 @@
 					"icon": "$(gitlens-gitlens)"
 				},
 				{
-					"id": "gitlensInspect",
-					"title": "GitLens Inspect",
-					"icon": "$(gitlens-gitlens-inspect)"
-				},
-				{
 					"id": "gitlensPatch",
 					"title": "GitLens Patch",
 					"icon": "$(gitlens-cloud-patch)"
@@ -27920,64 +27915,6 @@
 					"visibility": "visible"
 				}
 			],
-			"gitlensInspect": [
-				{
-					"type": "webview",
-					"id": "gitlens.views.commitDetails",
-					"name": "Inspect",
-					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-commit-view)",
-					"initialSize": 6,
-					"visibility": "visible"
-				},
-				{
-					"id": "gitlens.views.pullRequest",
-					"name": "Pull Request",
-					"when": "!gitlens:disabled && gitlens:views:pullRequest:visible",
-					"contextualTitle": "GitLens",
-					"icon": "$(git-pull-request)",
-					"initialSize": 1,
-					"visibility": "visible"
-				},
-				{
-					"id": "gitlens.views.lineHistory",
-					"name": "Line History",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-history-view)",
-					"initialSize": 1,
-					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.fileHistory",
-					"name": "File History",
-					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.fileHistory || gitlens:views:scm:grouped:views:fileHistory)",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-history-view)",
-					"initialSize": 2,
-					"visibility": "visible"
-				},
-				{
-					"type": "webview",
-					"id": "gitlens.views.timeline",
-					"name": "Visual File History",
-					"when": "!gitlens:disabled && (!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.timeline(?:\\||$)/)",
-					"contextualTitle": "GitLens",
-					"icon": "$(graph-scatter)",
-					"initialSize": 1,
-					"visibility": "visible"
-				},
-				{
-					"id": "gitlens.views.searchAndCompare",
-					"name": "Search & Compare",
-					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.searchAndCompare || gitlens:views:scm:grouped:views:searchAndCompare)",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-search-view)",
-					"initialSize": 2,
-					"visibility": "visible"
-				}
-			],
 			"gitlens": [
 				{
 					"type": "webview",
@@ -27986,15 +27923,6 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 1,
-					"visibility": "visible"
-				},
-				{
-					"type": "webview",
-					"id": "gitlens.views.home",
-					"name": "Home",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-gitlens)",
-					"initialSize": 6,
 					"visibility": "visible"
 				},
 				{
