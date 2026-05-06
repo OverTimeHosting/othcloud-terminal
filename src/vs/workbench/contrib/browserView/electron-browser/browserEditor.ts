@@ -35,14 +35,13 @@ import { WorkbenchHoverDelegate } from '../../../../platform/hover/browser/hover
 import { HoverPosition } from '../../../../base/browser/ui/hover/hoverWidget.js';
 import { MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
 import { IBrowserElementsService } from '../../../services/browserElements/browser/browserElementsService.js';
-import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { BrowserFindWidget, CONTEXT_BROWSER_FIND_WIDGET_FOCUSED, CONTEXT_BROWSER_FIND_WIDGET_VISIBLE } from './browserFindWidget.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
-import { IChatRequestVariableEntry } from '../../chat/common/attachments/chatVariableEntries.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IBrowserTargetLocator, getDisplayNameFromOuterHTML } from '../../../../platform/browserElements/common/browserElements.js';
 import { logBrowserOpen } from './browserViewTelemetry.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -208,8 +207,9 @@ export class BrowserEditor extends EditorPane {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IBrowserElementsService private readonly browserElementsService: IBrowserElementsService,
-		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IClipboardService private readonly clipboardService: IClipboardService,
+		@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super(BrowserEditor.ID, group, telemetryService, themeService, storageService);
 	}
@@ -640,9 +640,11 @@ export class BrowserEditor extends EditorPane {
 	}
 
 	/**
-	 * Start element selection in the browser view, wait for a user selection, and add it to chat.
+	 * Start element selection in the browser view, wait for a user selection, and copy its
+	 * outerHTML (optionally with computed CSS) to the system clipboard so it can be pasted
+	 * into a terminal, editor, or anywhere else.
 	 */
-	async addElementToChat(): Promise<void> {
+	async copyElement(): Promise<void> {
 		// If selection is already active, cancel it
 		if (this._elementSelectionCts) {
 			this._elementSelectionCts.dispose(true);
@@ -656,102 +658,38 @@ export class BrowserEditor extends EditorPane {
 		this._elementSelectionCts = cts;
 		this._elementSelectionActiveContext.set(true);
 
-		type IntegratedBrowserAddElementToChatStartEvent = {};
-
-		type IntegratedBrowserAddElementToChatStartClassification = {
-			owner: 'jruales';
-			comment: 'The user initiated an Add Element to Chat action in Integrated Browser.';
-		};
-
-		this.telemetryService.publicLog2<IntegratedBrowserAddElementToChatStartEvent, IntegratedBrowserAddElementToChatStartClassification>('integratedBrowser.addElementToChat.start', {});
-
 		try {
-			// Get the resource URI for this editor
 			const resourceUri = this.input?.resource;
 			if (!resourceUri) {
 				throw new Error('No resource URI found');
 			}
 
-			// Make the browser the focused view
 			this.ensureBrowserFocus();
 
-			// Create a locator - for integrated browser, use the URI scheme to identify
-			// Browser view URIs have a special scheme we can match against
 			const locator: IBrowserTargetLocator = { browserViewId: BrowserViewUri.getId(this.input.resource) };
-
-			// Start debug session for integrated browser
 			await this.browserElementsService.startDebugSession(cts.token, locator);
 
-			// Get the browser container bounds
 			const { width, height } = this._browserContainer.getBoundingClientRect();
-
-			// Get element data from user selection
 			const elementData = await this.browserElementsService.getElementData({ x: 0, y: 0, width, height }, cts.token, locator);
 			if (!elementData) {
 				throw new Error('Element data not found');
 			}
 
-			const bounds = elementData.bounds;
-			const toAttach: IChatRequestVariableEntry[] = [];
-
-			// Prepare HTML/CSS context
-			const displayName = getDisplayNameFromOuterHTML(elementData.outerHTML);
 			const attachCss = this.configurationService.getValue<boolean>('chat.sendElementsToChat.attachCSS');
-			let value = (attachCss ? 'Attached HTML and CSS Context' : 'Attached HTML Context') + '\n\n' + elementData.outerHTML;
-			if (attachCss) {
-				value += '\n\n' + elementData.computedStyle;
-			}
+			const text = attachCss
+				? `${elementData.outerHTML}\n\n/* Computed style */\n${elementData.computedStyle}`
+				: elementData.outerHTML;
 
-			toAttach.push({
-				id: 'element-' + Date.now(),
-				name: displayName,
-				fullName: displayName,
-				value: value,
-				kind: 'element',
-				icon: ThemeIcon.fromId(Codicon.layout.id),
+			await this.clipboardService.writeText(text);
+
+			const displayName = getDisplayNameFromOuterHTML(elementData.outerHTML);
+			this.notificationService.notify({
+				severity: Severity.Info,
+				message: localize('browser.copyElement.copied', "Copied {0} to clipboard.", displayName),
 			});
-
-			// Attach screenshot if enabled
-			const attachImages = this.configurationService.getValue<boolean>('chat.sendElementsToChat.attachImages');
-			if (attachImages && this._model) {
-				const screenshotBuffer = await this._model.captureScreenshot({
-					quality: 90,
-					rect: bounds
-				});
-
-				toAttach.push({
-					id: 'element-screenshot-' + Date.now(),
-					name: 'Element Screenshot',
-					fullName: 'Element Screenshot',
-					kind: 'image',
-					value: screenshotBuffer.buffer
-				});
-			}
-
-			// Attach to chat widget
-			const widget = await this.chatWidgetService.revealWidget() ?? this.chatWidgetService.lastFocusedWidget;
-			widget?.attachmentModel?.addContext(...toAttach);
-
-			type IntegratedBrowserAddElementToChatAddedEvent = {
-				attachCss: boolean;
-				attachImages: boolean;
-			};
-
-			type IntegratedBrowserAddElementToChatAddedClassification = {
-				attachCss: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether chat.sendElementsToChat.attachCSS was enabled.' };
-				attachImages: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether chat.sendElementsToChat.attachImages was enabled.' };
-				owner: 'jruales';
-				comment: 'An element was successfully added to chat from Integrated Browser.';
-			};
-
-			this.telemetryService.publicLog2<IntegratedBrowserAddElementToChatAddedEvent, IntegratedBrowserAddElementToChatAddedClassification>('integratedBrowser.addElementToChat.added', {
-				attachCss,
-				attachImages
-			});
-
 		} catch (error) {
 			if (!cts.token.isCancellationRequested) {
-				this.logService.error('BrowserEditor.addElementToChat: Failed to select element', error);
+				this.logService.error('BrowserEditor.copyElement: Failed to select element', error);
 			}
 		} finally {
 			cts.dispose();
@@ -796,7 +734,7 @@ export class BrowserEditor extends EditorPane {
 		const subtitle = $('.browser-welcome-subtitle');
 		const chatEnabled = this.contextKeyService.getContextKeyValue<boolean>(ChatContextKeys.enabled.key);
 		subtitle.textContent = chatEnabled
-			? localize('browser.welcomeSubtitleChat', "Use Add Element to Chat to reference UI elements in chat prompts.")
+			? localize('browser.welcomeSubtitleCopy', "Use Copy Element to copy UI elements to the clipboard.")
 			: localize('browser.welcomeSubtitle', "Enter a URL above to get started.");
 		content.appendChild(subtitle);
 
