@@ -32,7 +32,8 @@
 	"reportIssueUrl": "https://github.com/microsoft/vscode/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "othcloud-terminal",
-	"updateUrl": "https://github.com/OverTimeHosting/othcloud-terminal/releases",
+	"quality": "stable",
+	"updateUrl": "https://github.com/OverTimeHosting/othcloud-terminal",
 	"serverDownloadUrlTemplate": "https://github.com/OverTimeHosting/othcloud-terminal/releases/download/v${version}/othcloud-terminal-server-${os}-${arch}-${version}.tar.gz",
 	"extensionsGallery": {
 		"serviceUrl": "https://open-vsx.org/vscode/gallery",

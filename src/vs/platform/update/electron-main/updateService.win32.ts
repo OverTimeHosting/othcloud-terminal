@@ -31,6 +31,7 @@ import { asJson, IRequestService } from '../../request/common/request.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, IUpdateURLOptions, UpdateErrorClassification } from './abstractUpdateService.js';
+import { fetchLatestGitHubRelease, parseGitHubRepoFromUpdateUrl } from './githubReleaseProvider.js';
 
 interface IAvailableUpdate {
 	packagePath: string;
@@ -173,16 +174,30 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return;
 		}
 
-		const background = !explicit && !this.shouldDisableProgressiveReleases();
-		const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit!, { background });
-
 		// Only set CheckingForUpdates if we're not already in Overwriting state
 		if (this.state.type !== StateType.Overwriting) {
 			this.setState(State.CheckingForUpdates(explicit));
 		}
 
-		this.requestService.request({ url }, CancellationToken.None)
-			.then<IUpdate | null>(asJson)
+		// If updateUrl points at a GitHub repo, talk to GitHub's Releases API
+		// directly instead of expecting a Microsoft-style update server.
+		const githubRepo = parseGitHubRepoFromUpdateUrl(this.productService.updateUrl ?? '');
+		const updatePromise: Promise<IUpdate | null> = githubRepo
+			? fetchLatestGitHubRelease(
+				githubRepo,
+				this.productService.version,
+				name => /win32-x64-user-setup\.exe$/i.test(name),
+				this.requestService,
+				this.logService,
+				CancellationToken.None,
+			)
+			: (() => {
+				const background = !explicit && !this.shouldDisableProgressiveReleases();
+				const url = this.buildUpdateFeedUrl(this.quality!, pendingCommit ?? this.productService.commit!, { background });
+				return this.requestService.request({ url }, CancellationToken.None).then<IUpdate | null>(asJson);
+			})();
+
+		updatePromise
 			.then(update => {
 				const updateType = getUpdateType();
 

@@ -14,6 +14,7 @@ import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
 import { AvailableForDownload, IUpdate, State, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, IUpdateURLOptions } from './abstractUpdateService.js';
+import { fetchLatestGitHubRelease, parseGitHubRepoFromUpdateUrl } from './githubReleaseProvider.js';
 
 export class LinuxUpdateService extends AbstractUpdateService {
 
@@ -39,12 +40,28 @@ export class LinuxUpdateService extends AbstractUpdateService {
 			return;
 		}
 
-		const background = !explicit && !this.shouldDisableProgressiveReleases();
-		const url = this.buildUpdateFeedUrl(this.quality, this.productService.commit!, { background });
 		this.setState(State.CheckingForUpdates(explicit));
 
-		this.requestService.request({ url }, CancellationToken.None)
-			.then<IUpdate | null>(asJson)
+		// If updateUrl points at a GitHub repo, talk to GitHub's Releases API
+		// directly. The Linux service doesn't auto-install — it surfaces a
+		// "download available" notification that opens the .deb in the browser.
+		const githubRepo = parseGitHubRepoFromUpdateUrl(this.productService.updateUrl ?? '');
+		const updatePromise: Promise<IUpdate | null> = githubRepo
+			? fetchLatestGitHubRelease(
+				githubRepo,
+				this.productService.version,
+				name => /\.deb$/i.test(name) && /amd64|x86_64|x64/i.test(name),
+				this.requestService,
+				this.logService,
+				CancellationToken.None,
+			)
+			: (() => {
+				const background = !explicit && !this.shouldDisableProgressiveReleases();
+				const url = this.buildUpdateFeedUrl(this.quality!, this.productService.commit!, { background });
+				return this.requestService.request({ url }, CancellationToken.None).then<IUpdate | null>(asJson);
+			})();
+
+		updatePromise
 			.then(update => {
 				if (!update || !update.url || !update.version || !update.productVersion) {
 					this.setState(State.Idle(UpdateType.Archive));

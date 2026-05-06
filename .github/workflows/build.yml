@@ -15,6 +15,10 @@ on:
         description: "Build & upload the Linux x64 remote server (REH) for remote-SSH (~30 min)"
         type: boolean
         default: false
+      package_linux_desktop:
+        description: "Build & upload the Linux x64 desktop app + .deb installer (~40 min)"
+        type: boolean
+        default: false
       release:
         description: "Publish artifacts to a GitHub Release (requires package and/or package_linux_reh)"
         type: boolean
@@ -397,16 +401,155 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  package-linux-desktop:
+    name: Package Linux x64 Desktop (.deb)
+    if: |
+      always() &&
+      needs.compile.result == 'success' &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_dispatch' && inputs.package_linux_desktop)
+      )
+    needs: [bump-version, compile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+      VSCODE_NO_MANGLE: "1"
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.sha || github.sha }}
+
+      - name: Add 8 GB swap (prevents OOM during compile)
+        run: |
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            build/package-lock.json
+            build/vite/package-lock.json
+            extensions/**/package-lock.json
+            remote/**/package-lock.json
+            test/**/package-lock.json
+            .vscode/extensions/**/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linux build deps (incl. dpkg + fakeroot for .deb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbfile-dev libsecret-1-dev libkrb5-dev libx11-dev \
+            libxkbcommon-dev fakeroot rpm dpkg-dev
+
+      - name: Cache node_modules
+        id: nm-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            build/node_modules
+            build/vite/node_modules
+            extensions/node_modules
+            extensions/*/node_modules
+            extensions/*/server/node_modules
+            remote/node_modules
+            remote/web/node_modules
+            test/*/node_modules
+            .vscode/extensions/*/node_modules
+          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', '.nvmrc') }}
+
+      - name: Install dependencies
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        env:
+          npm_config_prefer_offline: "true"
+          npm_config_audit: "false"
+          npm_config_fund: "false"
+          npm_config_jobs: "max"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Cache Electron and built-in extensions
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/electron
+            .build/builtInExtensions
+          key: build-deps-linux-x64-${{ hashFiles('.npmrc', 'product.json', 'cgmanifest.json') }}
+          restore-keys: |
+            build-deps-linux-x64-
+
+      - name: Download Electron and built-in extensions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node build/lib/electron.ts
+          node build/lib/builtInExtensions.ts
+
+      - name: Build Linux desktop app (vscode-linux-x64-min)
+        run: npm run gulp vscode-linux-x64-min
+
+      - name: Build .deb package
+        run: |
+          npm run gulp vscode-linux-x64-prepare-deb
+          npm run gulp vscode-linux-x64-build-deb
+
+      - name: Read version
+        id: ver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Stage build outputs (rename .deb to a stable, version-pinned name)
+        run: |
+          mkdir -p .build/upload
+          # Locate the produced .deb (gulp emits it under .build/linux/deb/<arch>/deb/)
+          deb_src=$(find .build/linux/deb -name '*.deb' -print -quit)
+          if [ -z "$deb_src" ]; then
+            echo "No .deb file produced!" >&2
+            exit 1
+          fi
+          stable_name="othcloud-terminal_${{ steps.ver.outputs.version }}_amd64.deb"
+          cp "$deb_src" ".build/upload/${stable_name}"
+          # Also stage the unzipped desktop folder
+          cp -r ../VSCode-linux-x64 .build/upload/VSCode-linux-x64
+          ls -la .build/upload
+
+      - name: Upload Linux desktop app (raw folder)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-linux-x64
+          path: .build/upload/VSCode-linux-x64
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Linux .deb installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-linux-x64-deb
+          path: .build/upload/othcloud-terminal_*_amd64.deb
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     name: Publish GitHub Release
-    needs: [bump-version, package, package-linux-reh]
-    # Publish on every push to main (after a successful bump + builds), or when
-    # workflow_dispatch was invoked with `release: true`.
+    needs: [bump-version, package, package-linux-reh, package-linux-desktop]
     if: |
       always() &&
       needs.bump-version.result == 'success' &&
       needs.package.result == 'success' &&
       needs.package-linux-reh.result == 'success' &&
+      needs.package-linux-desktop.result == 'success' &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.release)
@@ -420,10 +563,16 @@ jobs:
           name: othcloud-terminal-win32-x64-user-setup
           path: ./release-assets
 
-      - name: Download Linux REH tarball
+      - name: Download Linux REH tarball (for SSH)
         uses: actions/download-artifact@v4
         with:
           name: othcloud-terminal-server-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz
+          path: ./release-assets
+
+      - name: Download Linux desktop .deb
+        uses: actions/download-artifact@v4
+        with:
+          name: othcloud-terminal-linux-x64-deb
           path: ./release-assets
 
       - name: List release assets
@@ -437,5 +586,11 @@ jobs:
           gh release create "$tag" \
             --repo "${{ github.repository }}" \
             --title "Othcloud Terminal ${{ needs.bump-version.outputs.version }}" \
-            --notes "Automated release built from commit ${{ needs.bump-version.outputs.sha }}." \
+            --notes "Automated release built from commit ${{ needs.bump-version.outputs.sha }}.
+
+          ## Downloads
+          - **Windows desktop installer:** \`othcloud-terminal-${{ needs.bump-version.outputs.version }}-win32-x64-user-setup.exe\`
+          - **Linux desktop (.deb):** \`othcloud-terminal_${{ needs.bump-version.outputs.version }}_amd64.deb\`
+          - **Linux remote server (used by Remote-SSH):** \`othcloud-terminal-server-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz\`
+          " \
             ./release-assets/*
