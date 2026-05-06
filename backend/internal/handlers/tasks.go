@@ -18,16 +18,44 @@ import (
 // ---------- DTOs (wire format) ----------
 
 type taskDTO struct {
-	ID               int64   `json:"id"`
-	Title            string  `json:"title"`
-	Description      string  `json:"description"`
-	Status           string  `json:"status"`
-	CreatorID        int64   `json:"creatorId"`
-	CreatorUsername  string  `json:"creatorUsername"`
-	AssigneeID       *int64  `json:"assigneeId,omitempty"`
-	AssigneeUsername *string `json:"assigneeUsername,omitempty"`
-	CreatedAt        string  `json:"createdAt"`
-	UpdatedAt        string  `json:"updatedAt"`
+	ID               int64          `json:"id"`
+	Title            string         `json:"title"`
+	Description      string         `json:"description"`
+	Status           string         `json:"status"`
+	CreatorID        int64          `json:"creatorId"`
+	CreatorUsername  string         `json:"creatorUsername"`
+	AssigneeID       *int64         `json:"assigneeId,omitempty"`
+	AssigneeUsername *string        `json:"assigneeUsername,omitempty"`
+	ServiceID        *int64         `json:"serviceId,omitempty"`
+	Commits          []commitDTO    `json:"commits"`
+	Source           *taskSourceDTO `json:"source,omitempty"`
+	CreatedAt        string         `json:"createdAt"`
+	UpdatedAt        string         `json:"updatedAt"`
+}
+
+type taskSourceDTO struct {
+	FilePath  string `json:"filePath"`
+	LineStart int    `json:"lineStart"`
+	LineEnd   int    `json:"lineEnd"`
+	Snippet   string `json:"snippet,omitempty"`
+}
+
+type commitDTO struct {
+	ID           int64  `json:"id"`
+	SHA          string `json:"sha"`
+	URL          string `json:"url"`
+	RepoFullName string `json:"repoFullName,omitempty"`
+	Message      string `json:"message,omitempty"`
+	LinkedBy     int64  `json:"linkedBy"`
+	LinkedByName string `json:"linkedByName"`
+	LinkedAt     string `json:"linkedAt"`
+}
+
+type addCommitInput struct {
+	URL          string `json:"url"`
+	SHA          string `json:"sha"`
+	RepoFullName string `json:"repoFullName"`
+	Message      string `json:"message"`
 }
 
 type messageDTO struct {
@@ -65,16 +93,37 @@ type activityDTO struct {
 // ---------- Mongo documents ----------
 
 type taskDoc struct {
-	ID               int64     `bson:"_id"`
-	Title            string    `bson:"title"`
-	Description      string    `bson:"description"`
-	Status           string    `bson:"status"`
-	CreatorID        int64     `bson:"creator_id"`
-	CreatorUsername  string    `bson:"creator_username"`
-	AssigneeID       *int64    `bson:"assignee_id,omitempty"`
-	AssigneeUsername *string   `bson:"assignee_username,omitempty"`
-	CreatedAt        time.Time `bson:"created_at"`
-	UpdatedAt        time.Time `bson:"updated_at"`
+	ID               int64           `bson:"_id"`
+	Title            string          `bson:"title"`
+	Description      string          `bson:"description"`
+	Status           string          `bson:"status"`
+	CreatorID        int64           `bson:"creator_id"`
+	CreatorUsername  string          `bson:"creator_username"`
+	AssigneeID       *int64          `bson:"assignee_id,omitempty"`
+	AssigneeUsername *string         `bson:"assignee_username,omitempty"`
+	ServiceID        *int64          `bson:"service_id,omitempty"`
+	Commits          []commitDoc     `bson:"commits,omitempty"`
+	Source           *taskSourceDoc  `bson:"source,omitempty"`
+	CreatedAt        time.Time       `bson:"created_at"`
+	UpdatedAt        time.Time       `bson:"updated_at"`
+}
+
+type taskSourceDoc struct {
+	FilePath  string `bson:"file_path"`
+	LineStart int    `bson:"line_start"`
+	LineEnd   int    `bson:"line_end"`
+	Snippet   string `bson:"snippet,omitempty"`
+}
+
+type commitDoc struct {
+	ID             int64     `bson:"id"`
+	SHA            string    `bson:"sha"`
+	URL            string    `bson:"url"`
+	RepoFullName   string    `bson:"repo_full_name,omitempty"`
+	Message        string    `bson:"message,omitempty"`
+	LinkedBy       int64     `bson:"linked_by"`
+	LinkedByName   string    `bson:"linked_by_name"`
+	LinkedAt       time.Time `bson:"linked_at"`
 }
 
 type messageDoc struct {
@@ -123,9 +172,11 @@ type activityDoc struct {
 // ---------- Inputs ----------
 
 type createTaskInput struct {
-	Title            string `json:"title"`
-	Description      string `json:"description"`
-	AssigneeUsername string `json:"assigneeUsername"`
+	Title            string         `json:"title"`
+	Description      string         `json:"description"`
+	AssigneeUsername string         `json:"assigneeUsername"`
+	ServiceID        *int64         `json:"serviceId,omitempty"`
+	Source           *taskSourceDTO `json:"source,omitempty"`
 }
 
 type patchTaskInput struct {
@@ -165,10 +216,27 @@ func iso(t time.Time) string {
 }
 
 func toTaskDTO(t taskDoc) taskDTO {
+	commits := make([]commitDTO, 0, len(t.Commits))
+	for _, c := range t.Commits {
+		commits = append(commits, commitDTO{
+			ID: c.ID, SHA: c.SHA, URL: c.URL, RepoFullName: c.RepoFullName, Message: c.Message,
+			LinkedBy: c.LinkedBy, LinkedByName: c.LinkedByName, LinkedAt: iso(c.LinkedAt),
+		})
+	}
+	var source *taskSourceDTO
+	if t.Source != nil {
+		source = &taskSourceDTO{
+			FilePath: t.Source.FilePath, LineStart: t.Source.LineStart,
+			LineEnd: t.Source.LineEnd, Snippet: t.Source.Snippet,
+		}
+	}
 	dto := taskDTO{
 		ID: t.ID, Title: t.Title, Description: t.Description, Status: t.Status,
 		CreatorID: t.CreatorID, CreatorUsername: t.CreatorUsername,
 		AssigneeID: t.AssigneeID, AssigneeUsername: t.AssigneeUsername,
+		ServiceID: t.ServiceID,
+		Commits: commits,
+		Source: source,
 		CreatedAt: iso(t.CreatedAt), UpdatedAt: iso(t.UpdatedAt),
 	}
 	return dto
@@ -222,11 +290,22 @@ func (s *Server) ListTasks(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := reqCtx(r)
 	defer cancel()
 
-	cur, err := s.DB.Tasks.Find(ctx,
-		bson.M{"$or": bson.A{
-			bson.M{"creator_id": me.ID},
-			bson.M{"assignee_id": me.ID},
-		}},
+	filter := bson.M{"$or": bson.A{
+		bson.M{"creator_id": me.ID},
+		bson.M{"assignee_id": me.ID},
+	}}
+	if raw := r.URL.Query().Get("serviceId"); raw != "" {
+		if sid, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			filter["service_id"] = sid
+		}
+	} else {
+		// Without a serviceId filter, the global tasks list should only
+		// show tasks that aren't tied to a service — service-scoped tasks
+		// are reachable from their service detail page.
+		filter["service_id"] = bson.M{"$exists": false}
+	}
+
+	cur, err := s.DB.Tasks.Find(ctx, filter,
 		options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}}),
 	)
 	if err != nil {
@@ -284,11 +363,20 @@ func (s *Server) CreateTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "id alloc failed")
 		return
 	}
+	var src *taskSourceDoc
+	if in.Source != nil && in.Source.FilePath != "" {
+		src = &taskSourceDoc{
+			FilePath: in.Source.FilePath, LineStart: in.Source.LineStart,
+			LineEnd: in.Source.LineEnd, Snippet: in.Source.Snippet,
+		}
+	}
 	now := nowUTC()
 	doc := taskDoc{
 		ID: id, Title: in.Title, Description: in.Description, Status: "open",
 		CreatorID: me.ID, CreatorUsername: me.Username,
 		AssigneeID: assigneeID, AssigneeUsername: assigneeName,
+		ServiceID: in.ServiceID,
+		Source: src,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if _, err := s.DB.Tasks.InsertOne(ctx, doc); err != nil {
@@ -606,4 +694,83 @@ func (s *Server) ListActivity(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// ---------- Commits ----------
+
+func (s *Server) AddCommit(w http.ResponseWriter, r *http.Request) {
+	me, _ := auth.UserFrom(r.Context())
+	id, ok := pathID(r, "id")
+	ctx, cancel := reqCtx(r)
+	defer cancel()
+	if !ok || !s.canViewTask(ctx, me.ID, id) {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	var in addCommitInput
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	in.URL = strings.TrimSpace(in.URL)
+	in.SHA = strings.TrimSpace(in.SHA)
+	if in.URL == "" || in.SHA == "" {
+		writeError(w, http.StatusBadRequest, "url and sha required")
+		return
+	}
+	cid, err := s.DB.NextID(ctx, "task_commits")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "id alloc failed")
+		return
+	}
+	now := nowUTC()
+	c := commitDoc{
+		ID: cid, SHA: in.SHA, URL: in.URL, RepoFullName: in.RepoFullName, Message: in.Message,
+		LinkedBy: me.ID, LinkedByName: me.Username, LinkedAt: now,
+	}
+	res, err := s.DB.Tasks.UpdateOne(ctx, bson.M{"_id": id},
+		bson.M{"$push": bson.M{"commits": c}, "$set": bson.M{"updated_at": now}},
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db update failed")
+		return
+	}
+	if res.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+	s.recordActivity(ctx, id, me.ID, me.Username, "commit-link", in.SHA)
+	writeJSON(w, http.StatusCreated, commitDTO{
+		ID: c.ID, SHA: c.SHA, URL: c.URL, RepoFullName: c.RepoFullName, Message: c.Message,
+		LinkedBy: c.LinkedBy, LinkedByName: c.LinkedByName, LinkedAt: iso(c.LinkedAt),
+	})
+}
+
+func (s *Server) RemoveCommit(w http.ResponseWriter, r *http.Request) {
+	me, _ := auth.UserFrom(r.Context())
+	id, ok := pathID(r, "id")
+	ctx, cancel := reqCtx(r)
+	defer cancel()
+	if !ok || !s.canViewTask(ctx, me.ID, id) {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	commitID, ok := pathID(r, "commitId")
+	if !ok {
+		writeError(w, http.StatusBadRequest, "bad commit id")
+		return
+	}
+	res, err := s.DB.Tasks.UpdateOne(ctx, bson.M{"_id": id},
+		bson.M{"$pull": bson.M{"commits": bson.M{"id": commitID}}, "$set": bson.M{"updated_at": nowUTC()}},
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db update failed")
+		return
+	}
+	if res.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+	s.recordActivity(ctx, id, me.ID, me.Username, "commit-unlink", "")
+	w.WriteHeader(http.StatusNoContent)
 }

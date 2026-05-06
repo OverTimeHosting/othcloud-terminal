@@ -5,8 +5,9 @@
 
 import { localize, localize2 } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { $, append } from '../../../../base/browser/dom.js';
+import { $, append, clearNode } from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { DevelopersClient, setAccessToken, DevTask } from './developersClient.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
@@ -28,11 +29,13 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 
 export const STORAGE_ACTIVITY_BAR_ENABLED = 'othcloud.developers.activityBarEnabled';
 export const STORAGE_USER = 'othcloud.developers.user';
+export const STORAGE_TASKS_REV = 'othcloud.developers.tasksRev';
+const STORAGE_JWT = 'othcloud.developers.jwt';
+const STORAGE_ACCESS_TOKEN = 'othcloud.developers.accessToken';
 
 const VIEW_CONTAINER_ID = 'workbench.view.othcloudDevelopers';
 const VIEW_ID = 'workbench.view.othcloudDevelopers.home';
-const OPEN_DEVELOPERS_COMMAND = 'othcloud.developers.open';
-const TOGGLE_ACTIVITY_BAR_COMMAND = 'othcloud.developers.toggleActivityBar';
+const OPEN_TASK_IN_WINDOW_COMMAND = 'othcloud.developers.openTaskInWindow';
 
 export const OthcloudActivityBarEnabledContext = new RawContextKey<boolean>(
 	'othcloud.developers.activityBarEnabled', false,
@@ -63,55 +66,104 @@ class DevelopersSidebarView extends ViewPane {
 		super.renderBody(container);
 		container.classList.add('othcloud-dev-sidebar');
 
-		const wrap = append(container, $('div'));
-		wrap.style.padding = '10px 12px';
-		wrap.style.display = 'flex';
-		wrap.style.flexDirection = 'column';
-		wrap.style.gap = '8px';
+		const wrap = append(container, $('div.dev-sidebar-wrap'));
 
-		const account = append(wrap, $('div'));
-		account.style.fontSize = '12px';
-		account.style.color = 'var(--vscode-descriptionForeground)';
-		const refreshAccount = () => {
-			const raw = this.storageService.get(STORAGE_USER, StorageScope.APPLICATION);
-			if (raw) {
-				try {
-					const u = JSON.parse(raw) as { username: string };
-					account.textContent = localize('othcloud.dev.signedInAs', 'Signed in as {0}', u.username);
-					return;
-				} catch { /* fall through */ }
-			}
-			account.textContent = localize('othcloud.dev.notSignedIn', 'Not signed in');
+		const tasksHeader = append(wrap, $('.dev-sidebar-section-header'));
+		append(tasksHeader, $('span', {}, localize('othcloud.dev.recentTasks', 'Tasks')));
+
+		const tasksList = append(wrap, $('.dev-sidebar-task-list'));
+
+		const renderTaskRow = (parent: HTMLElement, t: DevTask) => {
+			const row = append(parent, $('button.dev-sidebar-task'));
+			row.title = `#${t.id} · ${t.status}` + (t.assigneeUsername ? ` · ${t.assigneeUsername}` : '');
+			append(row, $('.dev-sidebar-task-title', {}, t.title));
+			append(row, $('.dev-sidebar-task-meta', {},
+				`#${t.id} · ${t.status}` + (t.assigneeUsername ? ` · ${t.assigneeUsername}` : ''),
+			));
+			row.onclick = () => this.commandService.executeCommand(OPEN_TASK_IN_WINDOW_COMMAND, t.id);
 		};
-		refreshAccount();
 
-		const open = append(wrap, $('button')) as HTMLButtonElement;
-		open.textContent = localize('othcloud.dev.openPanel', 'Open Developers Panel');
-		open.style.background = 'var(--vscode-button-background)';
-		open.style.color = 'var(--vscode-button-foreground)';
-		open.style.border = 'none';
-		open.style.padding = '6px 10px';
-		open.style.borderRadius = '2px';
-		open.style.cursor = 'pointer';
-		open.style.font = 'inherit';
-		open.onclick = () => this.commandService.executeCommand(OPEN_DEVELOPERS_COMMAND);
+		const loadTasks = async () => {
+			clearNode(tasksList);
+			const tok = this.storageService.get(STORAGE_ACCESS_TOKEN, StorageScope.APPLICATION);
+			const jwt = this.storageService.get(STORAGE_JWT, StorageScope.APPLICATION);
+			if (!tok || !jwt) {
+				append(tasksList, $('.dev-sidebar-hint', {}, localize('othcloud.dev.signInPrompt', 'Sign in to see tasks.')));
+				return;
+			}
+			setAccessToken(tok);
+			append(tasksList, $('.dev-sidebar-hint', {}, localize('othcloud.dev.loading', 'Loading…')));
+			try {
+				const [globalTasks, services] = await Promise.all([
+					DevelopersClient.listTasks(jwt),
+					DevelopersClient.listServices(jwt).catch(() => []),
+				]);
+				clearNode(tasksList);
 
-		const hide = append(wrap, $('button')) as HTMLButtonElement;
-		hide.textContent = localize('othcloud.dev.hideFromActivityBar', 'Hide from activity bar');
-		hide.style.background = 'transparent';
-		hide.style.color = 'var(--vscode-textLink-foreground)';
-		hide.style.border = 'none';
-		hide.style.padding = '0';
-		hide.style.cursor = 'pointer';
-		hide.style.font = 'inherit';
-		hide.style.fontSize = '11px';
-		hide.style.alignSelf = 'flex-start';
-		hide.onclick = () => this.commandService.executeCommand(TOGGLE_ACTIVITY_BAR_COMMAND, false);
+				if (globalTasks.length === 0 && services.length === 0) {
+					append(tasksList, $('.dev-sidebar-hint', {}, localize('othcloud.dev.noTasks', 'No tasks yet.')));
+					return;
+				}
 
-		// Re-render account label when storage changes (sign in / sign out).
-		const filter = this._register(new DisposableStore());
+				// Global (service-less) tasks at the top.
+				if (globalTasks.length > 0) {
+					const globalGroup = append(tasksList, $('.dev-sidebar-group'));
+					for (const t of globalTasks) { renderTaskRow(globalGroup, t); }
+				}
+
+				// Per-service collapsible sections.
+				for (const s of services) {
+					const group = append(tasksList, $('.dev-sidebar-group.dev-sidebar-service'));
+					const header = append(group, $('button.dev-sidebar-service-header')) as HTMLButtonElement;
+					const chev = append(header, $('span.chev', {}, '▸'));
+					append(header, $('span.label', {}, s.title));
+					const list = append(group, $('.dev-sidebar-service-tasks'));
+					list.style.display = 'none';
+
+					let expanded = false;
+					let loaded = false;
+					header.onclick = async () => {
+						expanded = !expanded;
+						chev.textContent = expanded ? '▾' : '▸';
+						list.style.display = expanded ? '' : 'none';
+						if (expanded && !loaded) {
+							loaded = true;
+							append(list, $('.dev-sidebar-hint', {}, localize('othcloud.dev.loading', 'Loading…')));
+							try {
+								const serviceTasks = await DevelopersClient.listTasks(jwt, { serviceId: s.id });
+								clearNode(list);
+								if (serviceTasks.length === 0) {
+									append(list, $('.dev-sidebar-hint', {}, localize('othcloud.dev.noTasks', 'No tasks yet.')));
+								} else {
+									for (const t of serviceTasks) { renderTaskRow(list, t); }
+								}
+							} catch (err) {
+								clearNode(list);
+								append(list, $('.dev-sidebar-hint', {}, String((err as Error).message ?? err)));
+							}
+						}
+					};
+				}
+			} catch (err) {
+				clearNode(tasksList);
+				append(tasksList, $('.dev-sidebar-hint', {}, String((err as Error).message ?? err)));
+			}
+		};
+		void loadTasks();
+
+		// Reload when sign-in changes or when any task mutation bumps the
+		// revision counter (set by DevelopersPage on create / patch / message).
+		const userFilter = this._register(new DisposableStore());
 		this._register(
-			this.storageService.onDidChangeValue(StorageScope.APPLICATION, STORAGE_USER, filter)(() => refreshAccount()),
+			this.storageService.onDidChangeValue(StorageScope.APPLICATION, STORAGE_USER, userFilter)(
+				() => void loadTasks(),
+			),
+		);
+		const revFilter = this._register(new DisposableStore());
+		this._register(
+			this.storageService.onDidChangeValue(StorageScope.APPLICATION, STORAGE_TASKS_REV, revFilter)(
+				() => void loadTasks(),
+			),
 		);
 	}
 }

@@ -44,6 +44,62 @@ export interface DevTask {
 	creatorUsername: string;
 	assigneeId?: number;
 	assigneeUsername?: string;
+	serviceId?: number;
+	commits: DevCommit[];
+	source?: DevTaskSource;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface DevTaskSource {
+	filePath: string;
+	lineStart: number;
+	lineEnd: number;
+	snippet?: string;
+}
+
+export interface DevCommit {
+	id: number;
+	sha: string;
+	url: string;
+	repoFullName?: string;
+	message?: string;
+	linkedBy: number;
+	linkedByName: string;
+	linkedAt: string;
+}
+
+export interface DevTimeEntry {
+	id: number;
+	taskId: number;
+	userId: number;
+	userUsername: string;
+	startAt: string;
+	endAt?: string;
+	durationSec: number;
+	running?: boolean;
+}
+
+export interface DevTaskTime {
+	totalSec: number;
+	running?: DevTimeEntry;
+	entries: DevTimeEntry[];
+}
+
+export interface DevRepo {
+	id: number;
+	name: string;
+	url: string;
+	provider: string;
+}
+
+export interface DevService {
+	id: number;
+	title: string;
+	description: string;
+	repos: DevRepo[];
+	creatorId: number;
+	creatorUsername: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -136,14 +192,57 @@ export const DevelopersClient = {
 		return request<DevUser[]>('/api/users', { method: 'GET', jwt });
 	},
 
-	async listTasks(jwt: string): Promise<DevTask[]> {
-		return request<DevTask[]>('/api/tasks', { method: 'GET', jwt });
+	async listTasks(jwt: string, opts?: { serviceId?: number }): Promise<DevTask[]> {
+		const qs = opts?.serviceId !== undefined ? `?serviceId=${opts.serviceId}` : '';
+		return request<DevTask[]>(`/api/tasks${qs}`, { method: 'GET', jwt });
 	},
 
-	async createTask(jwt: string, title: string, description: string, assigneeUsername?: string): Promise<DevTask> {
+	async createTask(
+		jwt: string,
+		title: string,
+		description: string,
+		assigneeUsername?: string,
+		serviceId?: number,
+		source?: DevTaskSource,
+	): Promise<DevTask> {
 		return request<DevTask>('/api/tasks', {
 			method: 'POST', jwt,
-			body: JSON.stringify({ title, description, assigneeUsername: assigneeUsername ?? '' }),
+			body: JSON.stringify({ title, description, assigneeUsername: assigneeUsername ?? '', serviceId, source }),
+		});
+	},
+
+	async listServices(jwt: string): Promise<DevService[]> {
+		return request<DevService[]>('/api/services', { method: 'GET', jwt });
+	},
+
+	async getService(jwt: string, id: number): Promise<DevService> {
+		return request<DevService>(`/api/services/${id}`, { method: 'GET', jwt });
+	},
+
+	async createService(jwt: string, title: string, description: string): Promise<DevService> {
+		return request<DevService>('/api/services', {
+			method: 'POST', jwt,
+			body: JSON.stringify({ title, description }),
+		});
+	},
+
+	async patchService(jwt: string, id: number, patch: { title?: string; description?: string }): Promise<DevService> {
+		return request<DevService>(`/api/services/${id}`, {
+			method: 'PATCH', jwt,
+			body: JSON.stringify(patch),
+		});
+	},
+
+	async addServiceRepo(jwt: string, serviceId: number, repo: { name: string; url: string; provider?: string }): Promise<DevRepo> {
+		return request<DevRepo>(`/api/services/${serviceId}/repos`, {
+			method: 'POST', jwt,
+			body: JSON.stringify(repo),
+		});
+	},
+
+	async removeServiceRepo(jwt: string, serviceId: number, repoId: number): Promise<void> {
+		await request<void>(`/api/services/${serviceId}/repos/${repoId}`, {
+			method: 'DELETE', jwt,
 		});
 	},
 
@@ -230,5 +329,28 @@ export const DevelopersClient = {
 
 	async listActivity(jwt: string, taskId: number): Promise<DevActivity[]> {
 		return request<DevActivity[]>(`/api/tasks/${taskId}/activity`, { method: 'GET', jwt });
+	},
+
+	async getTaskTime(jwt: string, taskId: number): Promise<DevTaskTime> {
+		return request<DevTaskTime>(`/api/tasks/${taskId}/time`, { method: 'GET', jwt });
+	},
+
+	async startTimer(jwt: string, taskId: number): Promise<DevTimeEntry> {
+		return request<DevTimeEntry>(`/api/tasks/${taskId}/time/start`, { method: 'POST', jwt, body: '{}' });
+	},
+
+	async stopTimer(jwt: string, taskId: number): Promise<DevTimeEntry> {
+		return request<DevTimeEntry>(`/api/tasks/${taskId}/time/stop`, { method: 'POST', jwt, body: '{}' });
+	},
+
+	async addCommit(jwt: string, taskId: number, c: { url: string; sha: string; repoFullName?: string; message?: string }): Promise<DevCommit> {
+		return request<DevCommit>(`/api/tasks/${taskId}/commits`, {
+			method: 'POST', jwt,
+			body: JSON.stringify(c),
+		});
+	},
+
+	async removeCommit(jwt: string, taskId: number, commitId: number): Promise<void> {
+		await request<void>(`/api/tasks/${taskId}/commits/${commitId}`, { method: 'DELETE', jwt });
 	},
 };

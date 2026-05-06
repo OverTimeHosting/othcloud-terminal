@@ -13,8 +13,9 @@ export const DEVELOPERS_RESOURCE_SCHEME = 'othcloud-developers';
 export const DEVELOPERS_INPUT_ID = 'workbench.editors.othcloudDevelopersInput';
 
 export interface DevelopersEditorOptions extends IEditorOptions {
-	view?: 'home' | 'tasks';
+	view?: 'home' | 'tasks' | 'task' | 'services' | 'service';
 	taskId?: number;
+	serviceId?: number;
 }
 
 export class DevelopersInput extends EditorInput {
@@ -22,13 +23,15 @@ export class DevelopersInput extends EditorInput {
 	static readonly ID = DEVELOPERS_INPUT_ID;
 	static readonly RESOURCE = URI.from({ scheme: DEVELOPERS_RESOURCE_SCHEME, authority: 'home' });
 
-	private _initialView: 'home' | 'tasks' | undefined;
+	private _initialView: 'home' | 'tasks' | 'task' | 'services' | 'service' | undefined;
 	private _initialTaskId: number | undefined;
+	private _initialServiceId: number | undefined;
 
 	constructor(opts: DevelopersEditorOptions = {}) {
 		super();
 		this._initialView = opts.view;
 		this._initialTaskId = opts.taskId;
+		this._initialServiceId = opts.serviceId;
 	}
 
 	override get typeId(): string {
@@ -43,7 +46,7 @@ export class DevelopersInput extends EditorInput {
 		return DevelopersInput.RESOURCE;
 	}
 
-	get initialView(): 'home' | 'tasks' | undefined {
+	get initialView(): 'home' | 'tasks' | 'task' | 'services' | 'service' | undefined {
 		return this._initialView;
 	}
 
@@ -51,10 +54,25 @@ export class DevelopersInput extends EditorInput {
 		return this._initialTaskId;
 	}
 
+	get initialServiceId(): number | undefined {
+		return this._initialServiceId;
+	}
+
 	override getName(): string {
-		return this._initialView === 'tasks'
-			? localize('othcloud.developers.tasksTitle', 'Tasks')
-			: localize('othcloud.developers.title', 'Developers');
+		if (this._initialTaskId !== undefined) {
+			return localize('othcloud.developers.taskTitle', 'Task #{0}', this._initialTaskId);
+		}
+		if (this._initialServiceId !== undefined) {
+			return localize('othcloud.developers.serviceTitle', 'Service #{0}', this._initialServiceId);
+		}
+		switch (this._initialView) {
+			case 'tasks':
+				return localize('othcloud.developers.tasksTitle', 'Tasks');
+			case 'services':
+				return localize('othcloud.developers.servicesTitle', 'Services');
+			default:
+				return localize('othcloud.developers.title', 'Developers');
+		}
 	}
 
 	override toUntyped(): IUntypedEditorInput {
@@ -71,8 +89,10 @@ export class DevelopersInput extends EditorInput {
 		if (!(other instanceof DevelopersInput)) {
 			return false;
 		}
-		// Treat the 'home' panel and the popped-out 'tasks' window as
-		// distinct editors so opening one doesn't just focus the other.
-		return (this._initialView ?? 'home') === (other.initialView ?? 'home');
+		// Each task / service / view kind opens as its own distinct editor so
+		// "open task #5 in window" doesn't just focus an existing tasks list.
+		return (this._initialView ?? 'home') === (other.initialView ?? 'home')
+			&& this._initialTaskId === other.initialTaskId
+			&& this._initialServiceId === other.initialServiceId;
 	}
 }

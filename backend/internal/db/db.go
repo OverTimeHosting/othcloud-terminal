@@ -11,15 +11,17 @@ import (
 )
 
 type DB struct {
-	Client          *mongo.Client
-	Database        *mongo.Database
-	Counters        *mongo.Collection
-	Users           *mongo.Collection
-	Tasks           *mongo.Collection
-	TaskMessages    *mongo.Collection
-	TaskChecklist   *mongo.Collection
-	TaskActivity    *mongo.Collection
-	TaskAttachments *mongo.Collection
+	Client           *mongo.Client
+	Database         *mongo.Database
+	Counters         *mongo.Collection
+	Users            *mongo.Collection
+	Tasks            *mongo.Collection
+	TaskMessages     *mongo.Collection
+	TaskChecklist    *mongo.Collection
+	TaskActivity     *mongo.Collection
+	TaskAttachments  *mongo.Collection
+	TaskTimeEntries  *mongo.Collection
+	Services         *mongo.Collection
 }
 
 func Open(ctx context.Context, uri, dbName string) (*DB, error) {
@@ -36,15 +38,17 @@ func Open(ctx context.Context, uri, dbName string) (*DB, error) {
 
 	d := client.Database(dbName)
 	db := &DB{
-		Client:          client,
-		Database:        d,
-		Counters:        d.Collection("counters"),
-		Users:           d.Collection("users"),
-		Tasks:           d.Collection("tasks"),
-		TaskMessages:    d.Collection("task_messages"),
-		TaskChecklist:   d.Collection("task_checklist"),
-		TaskActivity:    d.Collection("task_activity"),
-		TaskAttachments: d.Collection("task_attachments"),
+		Client:           client,
+		Database:         d,
+		Counters:         d.Collection("counters"),
+		Users:            d.Collection("users"),
+		Tasks:            d.Collection("tasks"),
+		TaskMessages:     d.Collection("task_messages"),
+		TaskChecklist:    d.Collection("task_checklist"),
+		TaskActivity:     d.Collection("task_activity"),
+		TaskAttachments:  d.Collection("task_attachments"),
+		TaskTimeEntries:  d.Collection("task_time_entries"),
+		Services:         d.Collection("services"),
 	}
 	if err := db.ensureIndexes(connectCtx); err != nil {
 		return nil, fmt.Errorf("ensure indexes: %w", err)
@@ -82,6 +86,17 @@ func (d *DB) ensureIndexes(ctx context.Context) error {
 	}
 	if _, err := d.TaskActivity.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "task_id", Value: 1}, {Key: "_id", Value: -1}},
+	}); err != nil {
+		return err
+	}
+	if _, err := d.Services.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "updated_at", Value: -1}},
+	}); err != nil {
+		return err
+	}
+	if _, err := d.TaskTimeEntries.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "task_id", Value: 1}, {Key: "_id", Value: -1}}},
+		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "end_at", Value: 1}}},
 	}); err != nil {
 		return err
 	}

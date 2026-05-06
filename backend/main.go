@@ -98,6 +98,21 @@ func main() {
 
 	authed.HandleFunc("GET /api/tasks/{id}/activity", srv.ListActivity)
 
+	authed.HandleFunc("POST /api/tasks/{id}/commits", srv.AddCommit)
+	authed.HandleFunc("DELETE /api/tasks/{id}/commits/{commitId}", srv.RemoveCommit)
+
+	authed.HandleFunc("GET /api/tasks/{id}/time", srv.GetTaskTime)
+	authed.HandleFunc("POST /api/tasks/{id}/time/start", srv.StartTaskTimer)
+	authed.HandleFunc("POST /api/tasks/{id}/time/stop", srv.StopTaskTimer)
+	authed.HandleFunc("GET /api/me/active-timer", srv.GetActiveTimer)
+
+	authed.HandleFunc("GET /api/services", srv.ListServices)
+	authed.HandleFunc("POST /api/services", srv.CreateService)
+	authed.HandleFunc("GET /api/services/{id}", srv.GetService)
+	authed.HandleFunc("PATCH /api/services/{id}", srv.PatchService)
+	authed.HandleFunc("POST /api/services/{id}/repos", srv.AddServiceRepo)
+	authed.HandleFunc("DELETE /api/services/{id}/repos/{repoId}", srv.RemoveServiceRepo)
+
 	mux.Handle("/", auth.RequireUser(cfg, authed))
 
 	handler := auth.AccessTokenMiddleware(cfg, mux)

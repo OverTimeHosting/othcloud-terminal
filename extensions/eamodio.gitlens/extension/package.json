@@ -1382,7 +1382,7 @@
 					},
 					"gitlens.launchpad.indicator.enabled": {
 						"type": "boolean",
-						"default": true,
+						"default": false,
 						"markdownDescription": "Specifies whether to enable status bar indicator for _Launchpad_",
 						"scope": "window",
 						"order": 100

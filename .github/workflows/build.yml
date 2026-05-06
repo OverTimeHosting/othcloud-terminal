@@ -274,16 +274,19 @@ jobs:
         id: ver
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Tarball the server with the remote-SSH expected name
+      - name: Stage build output into the repo (gulp emits it to ../vscode-reh-linux-x64)
         run: |
-          cd .build
-          tar -czf "othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" -C vscode-reh-linux-x64 .
+          mkdir -p .build/upload
+          cp -r ../vscode-reh-linux-x64 .build/upload/vscode-reh-linux-x64
+          tar -czf ".build/upload/othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" \
+            -C .build/upload/vscode-reh-linux-x64 .
+          ls -la .build/upload
 
       - name: Upload Linux REH server (raw folder)
         uses: actions/upload-artifact@v4
         with:
           name: othcloud-terminal-server-linux-x64
-          path: .build/vscode-reh-linux-x64
+          path: .build/upload/vscode-reh-linux-x64
           if-no-files-found: error
           retention-days: 7
 
@@ -291,6 +294,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
-          path: .build/othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          path: .build/upload/othcloud-terminal-reh-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
           if-no-files-found: error
           retention-days: 7

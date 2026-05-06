@@ -6,6 +6,7 @@
 import { localize, localize2 } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -17,7 +18,7 @@ import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/
 import { DevelopersInput } from './developersInput.js';
 import { DevelopersPage } from './developersPage.js';
 import { DevelopersAccountMenuContribution } from './developersAccountMenu.js';
-import { DevelopersActivityBarContribution, STORAGE_ACTIVITY_BAR_ENABLED } from './developersActivityBar.js';
+import { DevelopersActivityBarContribution, OthcloudActivityBarEnabledContext, STORAGE_ACTIVITY_BAR_ENABLED } from './developersActivityBar.js';
 
 const OPEN_DEVELOPERS_COMMAND = 'othcloud.developers.open';
 
@@ -84,6 +85,9 @@ registerAction2(class OpenDevelopersAction extends Action2 {
 });
 
 export const OPEN_TASKS_WINDOW_COMMAND = 'othcloud.developers.openTasks';
+export const OPEN_TASK_IN_WINDOW_COMMAND = 'othcloud.developers.openTaskInWindow';
+export const OPEN_SERVICES_WINDOW_COMMAND = 'othcloud.developers.openServices';
+export const STORAGE_NEW_TASK_PREFILL = 'othcloud.developers.newTaskPrefill';
 
 registerAction2(class OpenTasksWindowAction extends Action2 {
 	constructor() {
@@ -120,6 +124,120 @@ registerAction2(class OpenTasksWindowAction extends Action2 {
 	}
 });
 
+registerAction2(class OpenServicesWindowAction extends Action2 {
+	constructor() {
+		super({
+			id: OPEN_SERVICES_WINDOW_COMMAND,
+			title: {
+				value: 'Open Services Window',
+				original: 'Open Services Window',
+				mnemonicTitle: localize({ key: 'miOpenServices', comment: ['&& denotes a mnemonic'] }, "Open &&Services Window"),
+			},
+			category: localize2('othcloud.developers.category', 'Developers'),
+			icon: Codicon.server,
+			f1: true,
+			menu: [{
+				id: MenubarDevelopersMenu,
+				group: '1_open',
+				order: 3,
+			}],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const instantiationService = accessor.get(IInstantiationService);
+		const input = instantiationService.createInstance(DevelopersInput, { view: 'services' });
+		await editorService.openEditor(input, {
+			pinned: true,
+			auxiliary: {
+				compact: false,
+				alwaysOnTop: false,
+				bounds: { width: 980, height: 680 },
+			},
+		}, AUX_WINDOW_GROUP);
+	}
+});
+
+registerAction2(class NewTaskFromSelectionAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.developers.newTaskFromSelection',
+			title: localize2('othcloud.developers.newTaskFromSelection', 'othcloud Developer: Create Task from Selection'),
+			category: localize2('othcloud.developers.category', 'Developers'),
+			f1: true,
+			menu: [
+				{
+					id: MenuId.EditorContext,
+					group: '9_othcloud',
+					order: 1,
+				},
+			],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const storage = accessor.get(IStorageService);
+		const instantiationService = accessor.get(IInstantiationService);
+		const codeEditor = accessor.get(ICodeEditorService).getActiveCodeEditor();
+
+		let title = '';
+		let description = '';
+		let source: { filePath: string; lineStart: number; lineEnd: number; snippet?: string } | undefined;
+		if (codeEditor) {
+			const model = codeEditor.getModel();
+			const selection = codeEditor.getSelection();
+			if (model && selection && !selection.isEmpty()) {
+				const text = model.getValueInRange(selection);
+				const fileName = model.uri.path.split('/').pop() ?? model.uri.path;
+				title = `${fileName}:${selection.startLineNumber}-${selection.endLineNumber}`;
+				description = '```\n' + text + '\n```';
+				// Store the structured source separately so the task detail can
+				// show a "Jump to source" action that opens the file at the
+				// captured range. The frontend sends the URI string verbatim.
+				source = {
+					filePath: model.uri.toString(),
+					lineStart: selection.startLineNumber,
+					lineEnd: selection.endLineNumber,
+					snippet: text.length > 2000 ? text.slice(0, 2000) + '\n…' : text,
+				};
+			}
+		}
+
+		// Persist the prefill so DevelopersPage can pick it up on render.
+		storage.store(STORAGE_NEW_TASK_PREFILL, JSON.stringify({ title, description, source }), StorageScope.APPLICATION, StorageTarget.MACHINE);
+
+		const input = instantiationService.createInstance(DevelopersInput, { view: 'tasks' });
+		await editorService.openEditor(input, { pinned: true });
+	}
+});
+
+registerAction2(class OpenTaskInWindowAction extends Action2 {
+	constructor() {
+		super({
+			id: OPEN_TASK_IN_WINDOW_COMMAND,
+			title: localize2('othcloud.developers.openTaskInWindow', 'Open Task in Window'),
+			category: localize2('othcloud.developers.category', 'Developers'),
+		});
+	}
+
+	async run(accessor: ServicesAccessor, taskId: number): Promise<void> {
+		if (typeof taskId !== 'number') { return; }
+		const editorService = accessor.get(IEditorService);
+		const instantiationService = accessor.get(IInstantiationService);
+		const input = instantiationService.createInstance(DevelopersInput, { view: 'task', taskId });
+		await editorService.openEditor(input, {
+			pinned: true,
+			auxiliary: {
+				compact: false,
+				alwaysOnTop: false,
+				bounds: { width: 820, height: 620 },
+			},
+		}, AUX_WINDOW_GROUP);
+	}
+});
+
 registerAction2(class SignOutAction extends Action2 {
 	constructor() {
 		super({
@@ -143,9 +261,18 @@ registerAction2(class ToggleActivityBarAction extends Action2 {
 	constructor() {
 		super({
 			id: 'othcloud.developers.toggleActivityBar',
-			title: localize2('othcloud.developers.toggleActivityBar', 'Toggle in Activity Bar'),
+			title: localize2('othcloud.developers.toggleActivityBar', 'Show in Activity Bar'),
 			category: localize2('othcloud.developers.category', 'Developers'),
 			f1: true,
+			toggled: {
+				condition: OthcloudActivityBarEnabledContext,
+				title: localize('othcloud.developers.activityBarOn', 'Show in Activity Bar (on)'),
+			},
+			menu: [{
+				id: MenubarDevelopersMenu,
+				group: '2_settings',
+				order: 1,
+			}],
 		});
 	}
 
