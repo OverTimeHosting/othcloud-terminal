@@ -21,7 +21,7 @@ const STORAGE_NEW_TASK_PREFILL = 'othcloud.developers.newTaskPrefill';
 import {
 	DevelopersClient, DevelopersApiError, DevelopersAccessTokenMissingError,
 	setAccessToken, getAccessToken,
-	DevTask, DevMessage, DevChecklistItem, DevActivity, DevUser, DevService, DevStatus
+	DevTask, DevMessage, DevChecklistItem, DevActivity, DevUser, DevService, DevServerLink, DevStatus
 } from './developersClient.js';
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
@@ -124,6 +124,18 @@ export class DevelopersPage extends EditorPane {
 		const input = this._instantiationService.createInstance(DevelopersInput, {
 			view: 'task',
 			taskId,
+		});
+		await this._editorService.openEditor(input, { pinned: true });
+	}
+
+	/**
+	 * Same shape as openTaskInTab — each service id is its own DevelopersInput
+	 * with a unique URI, so opening multiple services stacks them as tabs.
+	 */
+	private async openServiceInTab(serviceId: number): Promise<void> {
+		const input = this._instantiationService.createInstance(DevelopersInput, {
+			view: 'service',
+			serviceId,
 		});
 		await this._editorService.openEditor(input, { pinned: true });
 	}
@@ -605,8 +617,7 @@ export class DevelopersPage extends EditorPane {
 			chip.textContent = '⛓ ' + sname;
 			chip.onclick = (e) => {
 				e.stopPropagation();
-				this.view = { kind: 'service', serviceId: t.serviceId! };
-				void this.renderMain();
+				void this.openServiceInTab(t.serviceId!);
 			};
 		}
 
@@ -1309,8 +1320,7 @@ export class DevelopersPage extends EditorPane {
 					row.onclick = (e) => {
 						// Don't navigate when the user clicks the repo link itself.
 						if ((e.target as HTMLElement).closest('a')) { return; }
-						this.view = { kind: 'service', serviceId: s.id };
-						void this.renderMain();
+						void this.openServiceInTab(s.id);
 					};
 					append(row, $('td.dev-col-id', {}, '#' + s.id));
 					append(row, $('td.dev-col-title', {}, s.title));
@@ -1422,9 +1432,9 @@ export class DevelopersPage extends EditorPane {
 						await DevelopersClient.addServiceRepo(this.jwt!, created.id, { ...pickedRepo, provider: 'github' });
 					} catch { /* surface in service detail */ }
 				}
-				// Jump straight to the new service detail so the user can keep iterating.
-				this.view = { kind: 'service', serviceId: created.id };
-				await this.renderMain();
+				// Open the new service in its own tab so the services list stays
+				// behind it (matches the task creation flow).
+				await this.openServiceInTab(created.id);
 				await onCreated();
 			} catch (err) {
 				const msg = err instanceof DevelopersApiError ? err.message : String(err);
@@ -1487,8 +1497,6 @@ export class DevelopersPage extends EditorPane {
 		const aside = append(wrap, $('.dev-detail-aside'));
 
 		const header = append(main, $('.dev-detail-header'));
-		const back = append(header, $('button.dev-back', {}, '← ' + localize('othcloud.dev.backToServices', 'Back to services'))) as HTMLButtonElement;
-		back.onclick = () => { this.view = { kind: 'services' }; void this.renderMain(); };
 		const titleEl = append(header, $('h2', {}, '…'));
 		const metaEl = append(header, $('.meta', {}, ''));
 
@@ -1512,6 +1520,20 @@ export class DevelopersPage extends EditorPane {
 		append(reposHeader, $('h4', {}, localize('othcloud.dev.repos', 'Linked repositories')));
 		const addRepoBtn = append(reposHeader, $('button.dev-back', {}, localize('othcloud.dev.linkRepo', 'Link repo'))) as HTMLButtonElement;
 		const reposList = append(reposSection, $('div'));
+
+		// Linked Servers sidebar
+		const serversSection = append(aside, $('.dev-aside-section'));
+		const serversHeader = append(serversSection, $('.dev-desc-header'));
+		append(serversHeader, $('h4', {}, localize('othcloud.dev.linkedServers', 'Linked servers')));
+		const addServerBtn = append(serversHeader, $('button.dev-back', {}, localize('othcloud.dev.linkServer', 'Link'))) as HTMLButtonElement;
+		const serversList = append(serversSection, $('div'));
+
+		// Linked Bare Metal sidebar
+		const bareMetalSection = append(aside, $('.dev-aside-section'));
+		const bareMetalHeader = append(bareMetalSection, $('.dev-desc-header'));
+		append(bareMetalHeader, $('h4', {}, localize('othcloud.dev.linkedBareMetal', 'Linked bare metal')));
+		const addBareMetalBtn = append(bareMetalHeader, $('button.dev-back', {}, localize('othcloud.dev.linkServer', 'Link'))) as HTMLButtonElement;
+		const bareMetalList = append(bareMetalSection, $('div'));
 
 		let service: DevService | null = null;
 
@@ -1586,6 +1608,94 @@ export class DevelopersPage extends EditorPane {
 			renderRepos();
 		});
 
+		const renderServerLinks = (
+			list: HTMLElement,
+			items: DevServerLink[],
+			emptyMsg: string,
+			onRemove: (linkId: number) => Promise<void>,
+		) => {
+			clearNode(list);
+			if (items.length === 0) {
+				append(list, $('.dev-activity-row', {}, emptyMsg));
+				return;
+			}
+			for (const it of items) {
+				const row = append(list, $('.dev-repo-row'));
+				append(row, $('span.label', {}, it.name));
+				append(row, $('span.dev-link-id', {}, it.externalId));
+				const del = append(row, $('button.dev-back', {}, '×')) as HTMLButtonElement;
+				del.title = localize('othcloud.dev.unlink', 'Unlink');
+				del.onclick = async () => {
+					del.disabled = true;
+					try {
+						await onRemove(it.id);
+						service = await DevelopersClient.getService(this.jwt!, serviceId);
+						renderServers();
+						renderBareMetal();
+					} catch (err) {
+						del.disabled = false;
+						this._notification.notify({
+							severity: Severity.Error,
+							message: err instanceof DevelopersApiError ? err.message : String(err),
+						});
+					}
+				};
+			}
+		};
+
+		const renderServers = () => {
+			renderServerLinks(
+				serversList,
+				service?.servers ?? [],
+				localize('othcloud.dev.noServers', 'No servers linked yet.'),
+				(linkId) => DevelopersClient.removeServiceServer(this.jwt!, serviceId, linkId),
+			);
+		};
+
+		const renderBareMetal = () => {
+			renderServerLinks(
+				bareMetalList,
+				service?.bareMetals ?? [],
+				localize('othcloud.dev.noBareMetal', 'No bare-metal nodes linked yet.'),
+				(linkId) => DevelopersClient.removeServiceBareMetal(this.jwt!, serviceId, linkId),
+			);
+		};
+
+		const promptLink = async (kind: 'server' | 'bareMetal') => {
+			const externalId = await this._quickInput.input({
+				prompt: kind === 'server'
+					? localize('othcloud.dev.serverIdPrompt', 'othcloud server id (e.g. srv_…)')
+					: localize('othcloud.dev.bareMetalIdPrompt', 'othcloud bare-metal id (e.g. ded_…)'),
+			});
+			if (!externalId || !externalId.trim()) { return; }
+			const name = await this._quickInput.input({
+				prompt: localize('othcloud.dev.linkLabelPrompt', 'Display label (e.g. prod-1)'),
+				value: externalId.trim(),
+			});
+			if (!name || !name.trim()) { return; }
+			try {
+				if (kind === 'server') {
+					await DevelopersClient.addServiceServer(this.jwt!, serviceId, {
+						externalId: externalId.trim(), name: name.trim(),
+					});
+				} else {
+					await DevelopersClient.addServiceBareMetal(this.jwt!, serviceId, {
+						externalId: externalId.trim(), name: name.trim(),
+					});
+				}
+				service = await DevelopersClient.getService(this.jwt!, serviceId);
+				renderServers();
+				renderBareMetal();
+			} catch (err) {
+				this._notification.notify({
+					severity: Severity.Error,
+					message: err instanceof DevelopersApiError ? err.message : String(err),
+				});
+			}
+		};
+		addServerBtn.onclick = () => void promptLink('server');
+		addBareMetalBtn.onclick = () => void promptLink('bareMetal');
+
 		const loadTasks = async () => {
 			clearNode(tasksList);
 			try {
@@ -1613,6 +1723,8 @@ export class DevelopersPage extends EditorPane {
 			metaEl.textContent = localize('othcloud.dev.serviceMeta', '#{0} · by {1}', String(service.id), service.creatorEmail);
 			renderDescription();
 			renderRepos();
+			renderServers();
+			renderBareMetal();
 		};
 
 		await loadHeader();

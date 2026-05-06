@@ -105,11 +105,20 @@ export interface DevRepo {
 	provider: string;
 }
 
+export interface DevServerLink {
+	id: number;
+	kind: 'server' | 'bareMetal';
+	externalId: string;
+	name: string;
+}
+
 export interface DevService {
 	id: number;
 	title: string;
 	description: string;
 	repos: DevRepo[];
+	servers: DevServerLink[];
+	bareMetals: DevServerLink[];
 	creatorId: string;
 	creatorEmail: string;
 	creatorName: string;
@@ -249,6 +258,32 @@ export const DevelopersClient = {
 
 	async removeServiceRepo(jwt: string, serviceId: number, repoId: number): Promise<void> {
 		await request<void>(`/api/services/${serviceId}/repos/${repoId}`, {
+			method: 'DELETE', jwt,
+		});
+	},
+
+	async addServiceServer(jwt: string, serviceId: number, body: { externalId: string; name: string }): Promise<DevServerLink> {
+		return request<DevServerLink>(`/api/services/${serviceId}/servers`, {
+			method: 'POST', jwt,
+			body: JSON.stringify(body),
+		});
+	},
+
+	async removeServiceServer(jwt: string, serviceId: number, linkId: number): Promise<void> {
+		await request<void>(`/api/services/${serviceId}/servers/${linkId}`, {
+			method: 'DELETE', jwt,
+		});
+	},
+
+	async addServiceBareMetal(jwt: string, serviceId: number, body: { externalId: string; name: string }): Promise<DevServerLink> {
+		return request<DevServerLink>(`/api/services/${serviceId}/bare-metal`, {
+			method: 'POST', jwt,
+			body: JSON.stringify(body),
+		});
+	},
+
+	async removeServiceBareMetal(jwt: string, serviceId: number, linkId: number): Promise<void> {
+		await request<void>(`/api/services/${serviceId}/bare-metal/${linkId}`, {
 			method: 'DELETE', jwt,
 		});
 	},

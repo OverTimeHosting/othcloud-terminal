@@ -280,6 +280,25 @@
 	white-space: nowrap;
 }
 
+.othcloud-developers .dev-repo-row .label {
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.othcloud-developers .dev-repo-row .dev-link-id {
+	color: var(--vscode-descriptionForeground);
+	font-size: 10px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+	flex: 1 1 auto;
+	margin-left: 6px;
+}
+
 /* Source banner shown in the new-task dialog when a code selection was captured. */
 .othcloud-developers .dev-source-banner {
 	font-size: 11px;
