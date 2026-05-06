@@ -173,6 +173,11 @@ extensions/*/server/
 extensions/*/lib/
 extensions/*/node_modules/
 
+# Vendored pre-built extensions: ship their dist/ since they have no source
+# to compile in-tree (whitelist override of the rule above).
+!extensions/eamodio.gitlens/dist/
+!extensions/eamodio.gitlens/dist/**
+
 # Packaged extensions and downloaded sources
 *.vsix
 extensions/*/.vscodeignore.bak

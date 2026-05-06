@@ -1,0 +1,7 @@
+.augment/**
+.mcp.json
+.vscode-agent.json
+.vsixmanifest
+.gitignore
+.gitattributes
+extension/**

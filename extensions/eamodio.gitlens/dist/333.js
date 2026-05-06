@@ -1,0 +1,1 @@
+exports.id=333,exports.ids=[333],exports.modules={4333(o,e,s){s.d(e,{installClaudeHook:()=>n});var l=s(1398),t=s(1558),a=s(4756);async function n(){let o=["ai","hook","install","claude-code"];for(let e of t.qs)o.push("--event",e);for(let e of t.zo)o.push("--blocking-event",e);await (0,a.XH)(o),l.window.showInformationMessage("Claude hook installed successfully.")}}};

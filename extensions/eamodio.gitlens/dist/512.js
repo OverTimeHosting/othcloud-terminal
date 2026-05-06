@@ -1,0 +1,1 @@
+exports.id=512,exports.ids=[512],exports.modules={8512(o,s,a){a.d(s,{uninstallClaudeHook:()=>n});var e=a(1398),l=a(4756);async function n(){await (0,l.XH)(["ai","hook","uninstall","claude-code"]),e.window.showInformationMessage("Claude hook uninstalled successfully.")}}};

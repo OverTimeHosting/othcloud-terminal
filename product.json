@@ -32,10 +32,22 @@
 	"reportIssueUrl": "https://github.com/microsoft/vscode/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "othcloud-terminal",
+	"updateUrl": "https://github.com/OverTimeHosting/othcloud-terminal/releases",
+	"serverDownloadUrlTemplate": "https://github.com/OverTimeHosting/othcloud-terminal/releases/download/v${version}/othcloud-terminal-server-${os}-${arch}-${version}.tar.gz",
 	"extensionsGallery": {
 		"serviceUrl": "https://open-vsx.org/vscode/gallery",
 		"itemUrl": "https://open-vsx.org/vscode/item",
 		"resourceUrlTemplate": "https://open-vsx.org/api/{publisher}/{name}/{version}/file/{path}"
+	},
+	"extensionEnabledApiProposals": {
+		"jeanp413.open-remote-ssh": [
+			"resolvers",
+			"contribViewsRemote"
+		],
+		"jeanp413.open-remote-wsl": [
+			"resolvers",
+			"contribViewsRemote"
+		]
 	},
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"builtInExtensions": [
