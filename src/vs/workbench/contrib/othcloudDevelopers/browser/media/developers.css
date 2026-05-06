@@ -324,20 +324,6 @@
 	overflow: auto;
 }
 
-.othcloud-developers .dev-complete-bar {
-	border-top: 1px solid var(--vscode-panel-border);
-	padding: 8px 16px;
-	flex: 0 0 auto;
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	justify-content: flex-end;
-}
-
-.othcloud-developers .dev-complete-btn {
-	min-width: 140px;
-	margin-left: auto;
-}
 
 /* Activity bar — collapsible service groups */
 
@@ -840,6 +826,8 @@
 .othcloud-developers .dev-detail-header h2 {
 	margin: 0 0 4px 0;
 	font-size: 16px;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .othcloud-developers .dev-detail-header .meta {
@@ -1019,19 +1007,29 @@
 	font: inherit;
 }
 
+/* The aside is one big scroll container. Each section keeps its natural
+   height (flex 0 0 auto) so flexbox can't squeeze them when the window
+   shrinks; the overflow scrolls the whole column instead of clipping. */
 .othcloud-developers .dev-detail-aside {
-	flex: 0 0 280px;
+	flex: 0 0 300px;
+	min-width: 240px;
+	max-width: 360px;
 	border-left: 1px solid var(--vscode-panel-border);
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
-	overflow: hidden;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .othcloud-developers .dev-aside-section {
 	padding: 10px 14px;
 	border-bottom: 1px solid var(--vscode-panel-border);
-	overflow: auto;
+	flex: 0 0 auto;
+	min-width: 0;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .othcloud-developers .dev-aside-section h4 {
@@ -1042,7 +1040,27 @@
 	color: var(--vscode-descriptionForeground);
 }
 
-.othcloud-developers .dev-aside-section.activity { flex: 1 1 auto; }
+/* Cap the activity feed so it doesn't push everything else off-screen as it
+   grows — its inner list scrolls independently while the rest of the aside
+   stays static. */
+.othcloud-developers .dev-aside-section.activity {
+	flex: 0 0 auto;
+}
+
+.othcloud-developers .dev-aside-section.activity > div {
+	max-height: 220px;
+	overflow-y: auto;
+}
+
+/* Pin the "Complete task" button to the very bottom of the aside, full-width. */
+.othcloud-developers .dev-aside-section.dev-complete-section {
+	border-bottom: none;
+	margin-top: auto;
+}
+
+.othcloud-developers .dev-aside-section.dev-complete-section .dev-complete-btn {
+	width: 100%;
+}
 
 .othcloud-developers .dev-checklist-item {
 	display: flex;

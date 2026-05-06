@@ -75,10 +75,10 @@ class DevelopersSidebarView extends ViewPane {
 
 		const renderTaskRow = (parent: HTMLElement, t: DevTask) => {
 			const row = append(parent, $('button.dev-sidebar-task'));
-			row.title = `#${t.id} Â· ${t.status}` + (t.assigneeEmail ? ` Â· ${t.assigneeEmail}` : '');
+			row.title = `#${t.id} · ${t.status}` + (t.assigneeEmail ? ` · ${t.assigneeEmail}` : '');
 			append(row, $('.dev-sidebar-task-title', {}, t.title));
 			append(row, $('.dev-sidebar-task-meta', {},
-				`#${t.id} Â· ${t.status}` + (t.assigneeEmail ? ` Â· ${t.assigneeEmail}` : ''),
+				`#${t.id} · ${t.status}` + (t.assigneeEmail ? ` · ${t.assigneeEmail}` : ''),
 			));
 			row.onclick = () => this.commandService.executeCommand(OPEN_TASK_IN_WINDOW_COMMAND, t.id);
 		};
@@ -92,7 +92,7 @@ class DevelopersSidebarView extends ViewPane {
 				return;
 			}
 			setAccessToken(tok);
-			append(tasksList, $('.dev-sidebar-hint', {}, localize('othcloud.dev.loading', 'Loadingâ€¦')));
+			append(tasksList, $('.dev-sidebar-hint', {}, localize('othcloud.dev.loading', 'Loading…')));
 			try {
 				const [globalTasks, services] = await Promise.all([
 					DevelopersClient.listTasks(jwt),
@@ -115,7 +115,7 @@ class DevelopersSidebarView extends ViewPane {
 				for (const s of services) {
 					const group = append(tasksList, $('.dev-sidebar-group.dev-sidebar-service'));
 					const header = append(group, $('button.dev-sidebar-service-header')) as HTMLButtonElement;
-					const chev = append(header, $('span.chev', {}, 'â–¸'));
+					const chev = append(header, $('span.chev', {}, '▸'));
 					append(header, $('span.label', {}, s.title));
 					const list = append(group, $('.dev-sidebar-service-tasks'));
 					list.style.display = 'none';
@@ -124,11 +124,11 @@ class DevelopersSidebarView extends ViewPane {
 					let loaded = false;
 					header.onclick = async () => {
 						expanded = !expanded;
-						chev.textContent = expanded ? 'â–¾' : 'â–¸';
+						chev.textContent = expanded ? '▾' : '▸';
 						list.style.display = expanded ? '' : 'none';
 						if (expanded && !loaded) {
 							loaded = true;
-							append(list, $('.dev-sidebar-hint', {}, localize('othcloud.dev.loading', 'Loadingâ€¦')));
+							append(list, $('.dev-sidebar-hint', {}, localize('othcloud.dev.loading', 'Loading…')));
 							try {
 								const serviceTasks = await DevelopersClient.listTasks(jwt, { serviceId: s.id });
 								clearNode(list);

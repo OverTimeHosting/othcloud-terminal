@@ -5,7 +5,7 @@
 
 // TODO: promote the server URL to a user-configurable setting.
 // The access token is supplied at runtime by the user (entered in the UI,
-// persisted via VSCode storage) â€” see DevelopersPage.
+// persisted via VSCode storage) — see DevelopersPage.
 export const DEVELOPERS_SERVER_URL = 'http://localhost:8787';
 
 let accessToken: string | null = null;
@@ -272,7 +272,12 @@ export const DevelopersClient = {
 		return request<DevTask>(`/api/tasks/${id}`, { method: 'GET', jwt });
 	},
 
-	async patchTask(jwt: string, id: number, patch: { title?: string; description?: string; status?: string }): Promise<DevTask> {
+	async patchTask(
+		jwt: string,
+		id: number,
+		// assigneeEmail: '' to unassign, an email to reassign, undefined to leave unchanged.
+		patch: { title?: string; description?: string; status?: string; assigneeEmail?: string },
+	): Promise<DevTask> {
 		return request<DevTask>(`/api/tasks/${id}`, {
 			method: 'PATCH', jwt,
 			body: JSON.stringify(patch),

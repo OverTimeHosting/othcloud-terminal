@@ -12,26 +12,46 @@ import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 export const DEVELOPERS_RESOURCE_SCHEME = 'othcloud-developers';
 export const DEVELOPERS_INPUT_ID = 'workbench.editors.othcloudDevelopersInput';
 
+export type DevelopersView = 'home' | 'tasks' | 'task' | 'services' | 'service';
+
 export interface DevelopersEditorOptions extends IEditorOptions {
-	view?: 'home' | 'tasks' | 'task' | 'services' | 'service';
+	view?: DevelopersView;
 	taskId?: number;
 	serviceId?: number;
+}
+
+/**
+ * Build a stable URI for a given view. Each view gets a distinct URI so that
+ * EditorInput.matches() (which falls back to URI equality) treats different
+ * views as different editors. Without this, opening a task tab after the
+ * tasks-list tab would clobber the tasks-list input state — switching back
+ * to that tab would then render whatever default the page falls through to.
+ */
+function resourceFor(view: DevelopersView | undefined, taskId?: number, serviceId?: number): URI {
+	if (taskId !== undefined) {
+		return URI.from({ scheme: DEVELOPERS_RESOURCE_SCHEME, authority: 'task', path: '/' + taskId });
+	}
+	if (serviceId !== undefined) {
+		return URI.from({ scheme: DEVELOPERS_RESOURCE_SCHEME, authority: 'service', path: '/' + serviceId });
+	}
+	return URI.from({ scheme: DEVELOPERS_RESOURCE_SCHEME, authority: view ?? 'home' });
 }
 
 export class DevelopersInput extends EditorInput {
 
 	static readonly ID = DEVELOPERS_INPUT_ID;
-	static readonly RESOURCE = URI.from({ scheme: DEVELOPERS_RESOURCE_SCHEME, authority: 'home' });
 
-	private _initialView: 'home' | 'tasks' | 'task' | 'services' | 'service' | undefined;
+	private _initialView: DevelopersView | undefined;
 	private _initialTaskId: number | undefined;
 	private _initialServiceId: number | undefined;
+	private readonly _resource: URI;
 
 	constructor(opts: DevelopersEditorOptions = {}) {
 		super();
 		this._initialView = opts.view;
 		this._initialTaskId = opts.taskId;
 		this._initialServiceId = opts.serviceId;
+		this._resource = resourceFor(opts.view, opts.taskId, opts.serviceId);
 	}
 
 	override get typeId(): string {
@@ -43,10 +63,10 @@ export class DevelopersInput extends EditorInput {
 	}
 
 	override get resource(): URI | undefined {
-		return DevelopersInput.RESOURCE;
+		return this._resource;
 	}
 
-	get initialView(): 'home' | 'tasks' | 'task' | 'services' | 'service' | undefined {
+	get initialView(): DevelopersView | undefined {
 		return this._initialView;
 	}
 
@@ -77,7 +97,7 @@ export class DevelopersInput extends EditorInput {
 
 	override toUntyped(): IUntypedEditorInput {
 		return {
-			resource: DevelopersInput.RESOURCE,
+			resource: this._resource,
 			options: { override: DevelopersInput.ID, pinned: true }
 		};
 	}
@@ -89,8 +109,8 @@ export class DevelopersInput extends EditorInput {
 		if (!(other instanceof DevelopersInput)) {
 			return false;
 		}
-		// Each task / service / view kind opens as its own distinct editor so
-		// "open task #5 in window" doesn't just focus an existing tasks list.
+		// Belt-and-suspenders against URI clashes — a task tab and a tasks-list
+		// tab must always be treated as distinct editors.
 		return (this._initialView ?? 'home') === (other.initialView ?? 'home')
 			&& this._initialTaskId === other.initialTaskId
 			&& this._initialServiceId === other.initialServiceId;

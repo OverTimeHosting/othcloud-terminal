@@ -13,7 +13,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
-import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { DevelopersInput } from './developersInput.js';
 import { DevelopersPage } from './developersPage.js';
@@ -41,9 +41,24 @@ MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 
 class DevelopersInputSerializer implements IEditorSerializer {
 	canSerialize(_input: DevelopersInput): boolean { return true; }
-	serialize(_input: DevelopersInput): string { return JSON.stringify({}); }
-	deserialize(_instantiationService: IInstantiationService, _serialized: string): DevelopersInput {
-		return new DevelopersInput({});
+	serialize(input: DevelopersInput): string {
+		return JSON.stringify({
+			view: input.initialView,
+			taskId: input.initialTaskId,
+			serviceId: input.initialServiceId,
+		});
+	}
+	deserialize(instantiationService: IInstantiationService, serialized: string): DevelopersInput {
+		try {
+			const o = JSON.parse(serialized) as { view?: any; taskId?: any; serviceId?: any };
+			return instantiationService.createInstance(DevelopersInput, {
+				view: o.view,
+				taskId: typeof o.taskId === 'number' ? o.taskId : undefined,
+				serviceId: typeof o.serviceId === 'number' ? o.serviceId : undefined,
+			});
+		} catch {
+			return instantiationService.createInstance(DevelopersInput, {});
+		}
 	}
 }
 
@@ -116,14 +131,11 @@ registerAction2(class OpenTasksWindowAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const instantiationService = accessor.get(IInstantiationService);
 		const input = instantiationService.createInstance(DevelopersInput, { view: 'tasks' });
-		await editorService.openEditor(input, {
-			pinned: true,
-			auxiliary: {
-				compact: false,
-				alwaysOnTop: false,
-				bounds: { width: 980, height: 680 },
-			},
-		}, AUX_WINDOW_GROUP);
+		// Opens as a pinned tab in the active editor group. The previous
+		// auxiliary-window flow lost the `view: 'tasks'` state because VSCode
+		// rebuilds the input from URI alone when crossing into an aux window
+		// via SyncDescriptor — landing the user on the Developers home page.
+		await editorService.openEditor(input, { pinned: true });
 	}
 });
 
@@ -151,14 +163,7 @@ registerAction2(class OpenServicesWindowAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const instantiationService = accessor.get(IInstantiationService);
 		const input = instantiationService.createInstance(DevelopersInput, { view: 'services' });
-		await editorService.openEditor(input, {
-			pinned: true,
-			auxiliary: {
-				compact: false,
-				alwaysOnTop: false,
-				bounds: { width: 980, height: 680 },
-			},
-		}, AUX_WINDOW_GROUP);
+		await editorService.openEditor(input, { pinned: true });
 	}
 });
 
@@ -230,14 +235,7 @@ registerAction2(class OpenTaskInWindowAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const instantiationService = accessor.get(IInstantiationService);
 		const input = instantiationService.createInstance(DevelopersInput, { view: 'task', taskId });
-		await editorService.openEditor(input, {
-			pinned: true,
-			auxiliary: {
-				compact: false,
-				alwaysOnTop: false,
-				bounds: { width: 820, height: 620 },
-			},
-		}, AUX_WINDOW_GROUP);
+		await editorService.openEditor(input, { pinned: true });
 	}
 });
 
