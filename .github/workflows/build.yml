@@ -31,6 +31,12 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  # Silence the "Node.js 20 actions are deprecated" warnings on every job by
+  # opting all third-party JS actions (checkout, cache, setup-node, setup-python)
+  # into the Node 24 runtime ahead of GitHub's June 2026 default flip.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   bump-version:
     name: Bump patch version
@@ -79,15 +85,12 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   compile:
-    name: Compile (windows-latest)
+    name: Compile (PR fast-fail)
     runs-on: windows-latest
     timeout-minutes: 30
-    # Compile must run for PRs (no bump job there) and after the bump on main.
-    # `always()` keeps it running for PRs where bump-version is skipped.
-    needs: [bump-version]
-    if: |
-      always() &&
-      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped')
+    # PR-only fast-fail: the package jobs do their own compile, so on push-to-main
+    # this job is pure waste. Skipping it saves ~30 min off the critical path.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -142,17 +145,20 @@ jobs:
     # Run on every push to main (after bump) and on opt-in workflow_dispatch.
     if: |
       always() &&
-      needs.compile.result == 'success' &&
+      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.package)
       )
-    needs: [bump-version, compile]
+    needs: [bump-version]
     runs-on: windows-latest
     timeout-minutes: 120
     env:
       VSCODE_ARCH: x64
       npm_config_arch: x64
+      # Skip the TS->TS mangler (private-field renaming, ~5% size win for ~10 min
+      # of build time). Not worth it for a fork.
+      VSCODE_NO_MANGLE: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -270,12 +276,12 @@ jobs:
     name: Package Linux x64 Remote Server (REH)
     if: |
       always() &&
-      needs.compile.result == 'success' &&
+      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.package_linux_reh)
       )
-    needs: [bump-version, compile]
+    needs: [bump-version]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -405,12 +411,12 @@ jobs:
     name: Package Linux x64 Desktop (.deb)
     if: |
       always() &&
-      needs.compile.result == 'success' &&
+      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.package_linux_desktop)
       )
-    needs: [bump-version, compile]
+    needs: [bump-version]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:

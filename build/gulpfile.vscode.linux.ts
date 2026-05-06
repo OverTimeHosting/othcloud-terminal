@@ -127,7 +127,10 @@ function buildDebPackage(arch: string) {
 	return async () => {
 		await exec(`chmod 755 ${product.applicationName}-${debArch}/DEBIAN/postinst ${product.applicationName}-${debArch}/DEBIAN/prerm ${product.applicationName}-${debArch}/DEBIAN/postrm`, { cwd });
 		await exec('mkdir -p deb', { cwd });
-		await exec(`fakeroot dpkg-deb -Zxz -b ${product.applicationName}-${debArch} deb`, { cwd });
+		// gzip (vs default xz) cuts ~5-10 min off a fresh .deb build at the
+		// cost of ~10 MB on the file size. For a fork that ships nightly,
+		// the time win matters more than the wire size.
+		await exec(`fakeroot dpkg-deb -Zgzip -z6 -b ${product.applicationName}-${debArch} deb`, { cwd });
 	};
 }
 
