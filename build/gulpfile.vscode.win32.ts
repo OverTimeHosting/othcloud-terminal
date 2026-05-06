@@ -112,7 +112,11 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 			Quality: quality
 		};
 
-		if (quality === 'stable' || quality === 'insider') {
+		// Only define the AppX symbols when product.json declares win32ContextMenu —
+		// the gulp-vscode pipeline above skips AppX manifest generation in that
+		// case, so the source files won't exist and Inno will fail with exit 2.
+		const ctxMenu = (product as { win32ContextMenu?: Record<string, { clsid: string }> }).win32ContextMenu;
+		if ((quality === 'stable' || quality === 'insider') && ctxMenu?.[arch]) {
 			definitions['AppxPackage'] = `${quality === 'stable' ? 'code' : 'code_insider'}_${arch}.appx`;
 			definitions['AppxPackageDll'] = `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`;
 			definitions['AppxPackageName'] = `${product.win32AppUserModelId}`;
