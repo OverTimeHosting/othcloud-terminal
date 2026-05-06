@@ -9,12 +9,23 @@ import { joinPath } from '../../../base/common/resources.js';
 import { URI } from '../../../base/common/uri.js';
 import { BrowserViewStorageScope } from '../common/browserView.js';
 
-// Same as webviews
+// Permissions allowed inside integrated browser views. Wider than the
+// webview/core sets because the browser is used to load arbitrary external
+// sites (Spotify, YouTube, etc.) that legitimately need media + EME.
 const allowedPermissions = new Set([
 	'pointerLock',
 	'notifications',
 	'clipboard-read',
-	'clipboard-sanitized-write'
+	'clipboard-sanitized-write',
+	'media',
+	'mediaKeySystem',
+	'media-key-system',
+	'protected-media-identifier',
+	'fullscreen',
+	'storage-access',
+	'top-level-storage-access',
+	'background-sync',
+	'idle-detection',
 ]);
 
 /**
