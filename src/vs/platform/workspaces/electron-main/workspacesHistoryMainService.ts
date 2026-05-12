@@ -29,6 +29,12 @@ import { IEnvironmentMainService } from '../../environment/electron-main/environ
 
 export const IWorkspacesHistoryMainService = createDecorator<IWorkspacesHistoryMainService>('workspacesHistoryMainService');
 
+export interface IGithubReposJumpListEntry {
+	readonly name: string;
+	readonly path: string;
+	readonly description?: string;
+}
+
 export interface IWorkspacesHistoryMainService {
 
 	readonly _serviceBrand: undefined;
@@ -39,6 +45,8 @@ export interface IWorkspacesHistoryMainService {
 	getRecentlyOpened(): Promise<IRecentlyOpened>;
 	removeRecentlyOpened(paths: URI[]): Promise<void>;
 	clearRecentlyOpened(options?: { confirm?: boolean }): Promise<void>;
+
+	setGithubReposJumpListEntries(entries: IGithubReposJumpListEntry[]): Promise<void>;
 }
 
 export class WorkspacesHistoryMainService extends Disposable implements IWorkspacesHistoryMainService {
@@ -305,6 +313,9 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 	private static readonly MAX_MACOS_DOCK_RECENT_ENTRIES_TOTAL = 10; 	// ...over number of files
 
 	private static readonly MAX_WINDOWS_JUMP_LIST_ENTRIES = 7;
+	private static readonly MAX_WINDOWS_GITHUB_REPOS_JUMP_LIST_ENTRIES = 20;
+
+	private githubReposEntries: IGithubReposJumpListEntry[] = [];
 
 	// Exclude some very common files from the dock/taskbar
 	private static readonly COMMON_FILES_FILTER = [
@@ -314,6 +325,8 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 	];
 
 	private readonly macOSRecentDocumentsUpdater = this._register(new ThrottledDelayer<void>(800));
+
+	private static readonly GITHUB_REPOS_JUMP_LIST_STORAGE_KEY = 'history.githubReposJumpListEntries';
 
 	private async handleWindowsJumpList(): Promise<void> {
 		if (!isWindows) {
@@ -325,8 +338,41 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 			return;
 		}
 
+		// Restore persisted GitHub repos entries so the jump list survives restarts
+		// even before the workbench has pushed an update.
+		this.githubReposEntries = this.loadGithubReposEntries();
+
 		await this.updateWindowsJumpList();
 		this._register(this.onDidChangeRecentlyOpened(() => this.updateWindowsJumpList()));
+	}
+
+	private loadGithubReposEntries(): IGithubReposJumpListEntry[] {
+		const raw = this.applicationStorageMainService.get(WorkspacesHistoryMainService.GITHUB_REPOS_JUMP_LIST_STORAGE_KEY, StorageScope.APPLICATION);
+		if (!raw) {
+			return [];
+		}
+		try {
+			const parsed = JSON.parse(raw);
+			if (!Array.isArray(parsed)) {
+				return [];
+			}
+			return parsed.filter((e: any) => e && typeof e.name === 'string' && typeof e.path === 'string');
+		} catch {
+			return [];
+		}
+	}
+
+	async setGithubReposJumpListEntries(entries: IGithubReposJumpListEntry[]): Promise<void> {
+		this.githubReposEntries = Array.isArray(entries) ? entries.slice() : [];
+		this.applicationStorageMainService.store(
+			WorkspacesHistoryMainService.GITHUB_REPOS_JUMP_LIST_STORAGE_KEY,
+			JSON.stringify(this.githubReposEntries),
+			StorageScope.APPLICATION,
+			StorageTarget.MACHINE
+		);
+		if (isWindows && !this.environmentMainService.isPortable) {
+			await this.updateWindowsJumpList();
+		}
 	}
 
 	private async updateWindowsJumpList(): Promise<void> {
@@ -351,6 +397,34 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 				}
 			]
 		});
+
+		// GitHub Repos (from activity bar view)
+		if (this.githubReposEntries.length > 0) {
+			const reposItems: JumpListItem[] = this.githubReposEntries
+				.slice(0, WorkspacesHistoryMainService.MAX_WINDOWS_GITHUB_REPOS_JUMP_LIST_ENTRIES)
+				.map(entry => {
+					const folderUri = URI.file(entry.path);
+					const title = (entry.name || basename(folderUri)).substr(0, 255);
+					const description = (entry.description || normalizeDriveLetter(folderUri.fsPath)).substr(0, 255);
+					return {
+						type: 'task',
+						title,
+						description,
+						program: process.execPath,
+						args: `--folder-uri "${folderUri.toString()}"`,
+						iconPath: 'explorer.exe',
+						iconIndex: 0
+					} satisfies JumpListItem;
+				});
+
+			if (reposItems.length > 0) {
+				jumpList.push({
+					type: 'custom',
+					name: localize('githubReposJumpList', "GitHub Repos"),
+					items: reposItems
+				});
+			}
+		}
 
 		// Recent Workspaces
 		if ((await this.getRecentlyOpened()).workspaces.length > 0) {

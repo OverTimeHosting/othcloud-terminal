@@ -29,7 +29,7 @@ import { IHostService } from '../../../services/host/browser/host.js';
 import { append, $, addDisposableListener, EventType, clearNode } from '../../../../base/browser/dom.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 
-interface IRepoEntry {
+export interface IRepoEntry {
 	id: string;
 	name: string;
 	path: string;
@@ -37,7 +37,12 @@ interface IRepoEntry {
 	source: 'manual' | 'scan';
 }
 
-const STORAGE_KEY = 'githubRepos.entries';
+export const GITHUB_REPOS_STORAGE_KEY = 'githubRepos.entries';
+const STORAGE_KEY = GITHUB_REPOS_STORAGE_KEY;
+
+export function loadGithubRepoEntries(storage: IStorageService): IRepoEntry[] {
+	return loadEntries(storage);
+}
 const VIEW_CONTAINER_ID = 'workbench.view.githubRepos';
 const VIEW_ID = 'workbench.view.githubRepos.list';
 

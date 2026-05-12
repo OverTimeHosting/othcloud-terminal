@@ -160,6 +160,9 @@ import './contrib/webview/electron-browser/webview.contribution.js';
 // Browser
 import './contrib/browserView/electron-browser/browserView.contribution.js';
 
+// GitHub Repos (taskbar jump list)
+import './contrib/githubRepos/electron-browser/githubReposJumpList.contribution.js';
+
 // Splash
 import './contrib/splash/electron-browser/splash.contribution.js';
 
