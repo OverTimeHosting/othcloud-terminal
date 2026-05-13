@@ -398,24 +398,59 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 			]
 		});
 
+		// Windows refuses to re-add any item the user has previously removed from
+		// the jump list, and a single rejected item silently drops *every* custom
+		// category we ask for (see https://github.com/microsoft/vscode/issues/15052).
+		// Always honour `removedItems` — even when there are no Recent Workspaces —
+		// so the GitHub Repos category survives once the user has ever pruned an
+		// entry. Recent entries get pruned from the underlying list; GitHub Repos
+		// rows are filtered out at jump-list build time but kept in storage so the
+		// user can still see/manage them from the activity bar view.
+		const removedArgs = new Set<string>();
+		const removedRecentUris: URI[] = [];
+		try {
+			for (const item of app.getJumpListSettings().removedItems) {
+				const args = item.args;
+				if (!args) {
+					continue;
+				}
+				removedArgs.add(args);
+				const match = /^--(folder|file)-uri\s+"([^"]+)"$/.exec(args);
+				if (match) {
+					removedRecentUris.push(URI.parse(match[2]));
+				}
+			}
+		} catch (error) {
+			this.logService.warn('updateWindowsJumpList#getJumpListSettings', error);
+		}
+		if (removedRecentUris.length > 0) {
+			await this.removeRecentlyOpened(removedRecentUris);
+		}
+
 		// GitHub Repos (from activity bar view)
 		if (this.githubReposEntries.length > 0) {
-			const reposItems: JumpListItem[] = this.githubReposEntries
-				.slice(0, WorkspacesHistoryMainService.MAX_WINDOWS_GITHUB_REPOS_JUMP_LIST_ENTRIES)
-				.map(entry => {
-					const folderUri = URI.file(entry.path);
-					const title = (entry.name || basename(folderUri)).substr(0, 255);
-					const description = (entry.description || normalizeDriveLetter(folderUri.fsPath)).substr(0, 255);
-					return {
-						type: 'task',
-						title,
-						description,
-						program: process.execPath,
-						args: `--folder-uri "${folderUri.toString()}"`,
-						iconPath: 'explorer.exe',
-						iconIndex: 0
-					} satisfies JumpListItem;
-				});
+			const reposItems: JumpListItem[] = [];
+			for (const entry of this.githubReposEntries.slice(0, WorkspacesHistoryMainService.MAX_WINDOWS_GITHUB_REPOS_JUMP_LIST_ENTRIES)) {
+				if (!entry?.path) {
+					continue;
+				}
+				const folderUri = URI.file(entry.path);
+				const args = `--folder-uri "${folderUri.toString()}"`;
+				if (removedArgs.has(args)) {
+					continue; // user removed this from the jump list
+				}
+				const title = ((entry.name || basename(folderUri)) || folderUri.fsPath).substr(0, 255);
+				const description = (entry.description || normalizeDriveLetter(folderUri.fsPath)).substr(0, 255);
+				reposItems.push({
+					type: 'task',
+					title,
+					description,
+					program: process.execPath,
+					args,
+					iconPath: 'explorer.exe',
+					iconIndex: 0
+				} satisfies JumpListItem);
+			}
 
 			if (reposItems.length > 0) {
 				jumpList.push({
@@ -428,22 +463,6 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 
 		// Recent Workspaces
 		if ((await this.getRecentlyOpened()).workspaces.length > 0) {
-
-			// The user might have meanwhile removed items from the jump list and we have to respect that
-			// so we need to update our list of recent paths with the choice of the user to not add them again
-			// Also: Windows will not show our custom category at all if there is any entry which was removed
-			// by the user! See https://github.com/microsoft/vscode/issues/15052
-			const toRemove: URI[] = [];
-			for (const item of app.getJumpListSettings().removedItems) {
-				const args = item.args;
-				if (args) {
-					const match = /^--(folder|file)-uri\s+"([^"]+)"$/.exec(args);
-					if (match) {
-						toRemove.push(URI.parse(match[2]));
-					}
-				}
-			}
-			await this.removeRecentlyOpened(toRemove);
 
 			// Add entries
 			let hasWorkspaces = false;

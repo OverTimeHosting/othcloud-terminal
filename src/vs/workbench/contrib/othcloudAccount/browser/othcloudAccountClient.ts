@@ -3,14 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { env } from '../../../../base/common/process.js';
 import { IOthcloudUser } from '../common/othcloudAccountService.js';
 
-// TODO: promote to a configuration setting (e.g. `othcloud.serverUrl`) so the
-// dev/prod switch doesn't require a code change. Matched here against the
-// pairing contract documented in PAIRING.md at the repo root.
-// Local dev default — flip to `https://othcloud.xyz` once the pairing
-// endpoints land in production.
-export const OTHCLOUD_BASE_URL = 'http://localhost:3001';
+// Pairing contract is documented in PAIRING.md at the repo root.
+// Dev builds (`yarn watch` / running out of sources, where `VSCODE_DEV` is set)
+// hit the local Next.js dev server; packaged builds talk to production.
+const OTHCLOUD_DEV_BASE_URL = 'http://localhost:3001';
+const OTHCLOUD_PROD_BASE_URL = 'https://othcloud.xyz';
+export const OTHCLOUD_BASE_URL = env['VSCODE_DEV'] ? OTHCLOUD_DEV_BASE_URL : OTHCLOUD_PROD_BASE_URL;
 
 export interface IPairTokenResponse {
 	readonly token: string;

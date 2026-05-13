@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { isWindows } from '../../../../base/common/platform.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
@@ -17,6 +18,7 @@ class GithubReposJumpListContribution extends Disposable implements IWorkbenchCo
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
 		@INativeHostService private readonly nativeHostService: INativeHostService,
+		@ILogService private readonly logService: ILogService,
 	) {
 		super();
 
@@ -30,12 +32,16 @@ class GithubReposJumpListContribution extends Disposable implements IWorkbenchCo
 	}
 
 	private push(): void {
-		const entries = loadGithubRepoEntries(this.storageService).map(e => ({
-			name: e.name,
-			path: e.path,
-			description: e.url || e.path,
-		}));
-		this.nativeHostService.updateGithubReposJumpList(entries).catch(() => { /* best-effort */ });
+		const entries = loadGithubRepoEntries(this.storageService)
+			.filter(e => e && typeof e.path === 'string' && e.path.length > 0)
+			.map(e => ({
+				name: e.name,
+				path: e.path,
+				description: e.url || e.path,
+			}));
+		this.nativeHostService.updateGithubReposJumpList(entries).catch(err => {
+			this.logService.warn('githubReposJumpList: failed to push entries to native host', err);
+		});
 	}
 }
 

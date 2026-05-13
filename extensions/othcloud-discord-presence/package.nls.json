@@ -1,10 +1,18 @@
 {
-	"displayName": "Othcloud Discord Presence",
-	"description": "Show your Othcloud Terminal activity in Discord via Rich Presence.",
-	"config.enabled": "Show Othcloud Terminal activity in Discord.",
-	"config.applicationName": "Name shown next to the activity in Discord.",
+	"displayName": "OTHCloud Discord Presence",
+	"description": "Show your OTHCloud Terminal activity in Discord via Rich Presence.",
+	"config.enabled": "Show OTHCloud Terminal activity in Discord.",
+	"config.applicationName": "Name shown next to the activity in Discord. Falls back to the Discord application name if blank.",
+	"config.detailsTemplate": "First line of the activity. Placeholders: {file} {language} {workspace} {app} {idle}. Default: \"Editing {file}\".",
+	"config.stateTemplate": "Second line of the activity. Same placeholders as detailsTemplate. Default: \"Workspace: {workspace} • {language}\".",
+	"config.idleDetailsTemplate": "First line of the activity when no editor is focused. Placeholders: {app} {idle}. Default: \"{app} — {idle}\".",
 	"config.largeImage": "Large image asset key. Upload an image under your Discord application's Rich Presence Assets and reference it by name.",
-	"config.idleText": "Text shown when no editor is focused.",
+	"config.largeImageText": "Tooltip text shown when hovering the large image.",
+	"config.smallImage": "Optional small image asset key. Leave blank to hide.",
+	"config.smallImageText": "Tooltip text shown when hovering the small image.",
+	"config.idleText": "Text used by the {idle} placeholder.",
 	"config.showFileName": "Include the active file name in the presence details.",
-	"config.showWorkspace": "Include the workspace name in the presence state line."
+	"config.showWorkspace": "Include the workspace name in the presence state line.",
+	"cmd.showStatus": "Show Status (Discord Presence)",
+	"cmd.reconnect": "Reconnect"
 }

@@ -28,6 +28,13 @@ interface Activity {
 	};
 }
 
+type Status =
+	| { kind: 'idle' }
+	| { kind: 'connecting'; clientId: string }
+	| { kind: 'connected'; clientId: string; since: number }
+	| { kind: 'disconnected'; reason: string }
+	| { kind: 'disabled' };
+
 class DiscordRpc {
 	private socket: net.Socket | undefined;
 	private buffer = Buffer.alloc(0);
@@ -152,49 +159,109 @@ class DiscordRpc {
 }
 
 const RECONNECT_DELAY_MS = 20000;
-const DEFAULT_APPLICATION_ID = '1348861044604534835';
+// Hardcoded — the OTHCloud Discord application. Not user-configurable.
+const DISCORD_APPLICATION_ID = '1348861044604534835';
 
 let rpc: DiscordRpc | undefined;
 let reconnectTimer: NodeJS.Timeout | undefined;
 let sessionStart = Math.floor(Date.now() / 1000);
 let outputChannel: vscode.OutputChannel | undefined;
+let status: Status = { kind: 'idle' };
 
 function log(message: string): void {
 	outputChannel?.appendLine(`[${new Date().toISOString()}] ${message}`);
+}
+
+function setStatus(next: Status): void {
+	status = next;
+	log(`status -> ${describeStatus(next)}`);
+}
+
+function describeStatus(s: Status): string {
+	switch (s.kind) {
+		case 'idle': return 'idle';
+		case 'connecting': return `connecting (client_id=${s.clientId})`;
+		case 'connected': return `connected (client_id=${s.clientId}, since=${new Date(s.since * 1000).toISOString()})`;
+		case 'disconnected': return `disconnected (${s.reason})`;
+		case 'disabled': return 'disabled by setting';
+	}
 }
 
 function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration('othcloud.discord');
 }
 
+/**
+ * Tiny template renderer — replaces `{placeholder}` tokens with values, drops
+ * empty surrounding separators so a missing placeholder doesn't leave " •  •"
+ * gunk in the rendered string.
+ */
+function render(template: string, values: Record<string, string>): string {
+	const filled = template.replace(/\{(\w+)\}/g, (_match, key: string) => values[key] ?? '');
+	return filled
+		.replace(/\s*[•·\-—]\s*(?=$|\s*[•·\-—])/g, '')  // collapse "X •  • Y" → "X • Y"
+		.replace(/^\s*[•·\-—]\s*/, '')                    // leading separator
+		.replace(/\s*[•·\-—]\s*$/, '')                    // trailing separator
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
 function buildActivity(): Activity | null {
 	const config = getConfig();
-	const appName = config.get<string>('applicationName', 'Othcloud Terminal');
-	const largeImage = config.get<string>('largeImage', 'othcloud-logo');
+	const appName = config.get<string>('applicationName', 'OTHCloud Terminal');
+	const largeImage = config.get<string>('largeImage', 'othcloud-logo') || undefined;
+	const largeImageText = config.get<string>('largeImageText', '') || appName;
+	const smallImage = config.get<string>('smallImage', '') || undefined;
+	const smallImageText = config.get<string>('smallImageText', '') || undefined;
 	const idleText = config.get<string>('idleText', 'Idle');
+	const detailsTemplate = config.get<string>('detailsTemplate', 'Editing {file}');
+	const stateTemplate = config.get<string>('stateTemplate', 'Workspace: {workspace} • {language}');
+	const idleDetailsTemplate = config.get<string>('idleDetailsTemplate', '{app} — {idle}');
 	const showFileName = config.get<boolean>('showFileName', true);
 	const showWorkspace = config.get<boolean>('showWorkspace', true);
 
-	let details = `Using ${appName}`;
+	const editor = vscode.window.activeTextEditor;
+	const folders = vscode.workspace.workspaceFolders;
+	const workspaceName = (showWorkspace && folders && folders.length > 0) ? folders[0].name : '';
+	const fileName = (showFileName && editor) ? (path.basename(editor.document.fileName) || editor.document.uri.path) : '';
+	const languageId = editor?.document.languageId ?? '';
+
+	const values: Record<string, string> = {
+		file: fileName,
+		language: languageId,
+		workspace: workspaceName,
+		app: appName,
+		idle: idleText,
+	};
+
+	let details: string;
 	let state: string | undefined;
 
-	const editor = vscode.window.activeTextEditor;
-	if (editor && showFileName) {
-		const fileName = path.basename(editor.document.fileName) || editor.document.uri.path;
-		const language = editor.document.languageId;
-		details = `Editing ${fileName}`;
-		if (language) {
-			state = `Language: ${language}`;
+	if (editor) {
+		details = render(detailsTemplate, values);
+		state = render(stateTemplate, values);
+		if (!state) {
+			state = undefined;
 		}
-	} else if (!editor) {
-		details = `${appName} — ${idleText}`;
+	} else {
+		details = render(idleDetailsTemplate, values);
 	}
 
-	if (showWorkspace) {
-		const folders = vscode.workspace.workspaceFolders;
-		if (folders && folders.length > 0) {
-			const wsLine = `Workspace: ${folders[0].name}`;
-			state = state ? `${state} • ${wsLine}` : wsLine;
+	// Discord requires `details` to be a non-empty string when set. Fall back
+	// to the app name so we never push an invalid activity.
+	if (!details) {
+		details = appName;
+	}
+
+	const assets: NonNullable<Activity['assets']> = {};
+	if (largeImage) {
+		assets.large_image = largeImage;
+		assets.large_text = largeImageText;
+	}
+	if (smallImage) {
+		assets.small_image = smallImage;
+		if (smallImageText) {
+			assets.small_text = smallImageText;
 		}
 	}
 
@@ -202,10 +269,7 @@ function buildActivity(): Activity | null {
 		details,
 		state,
 		timestamps: { start: sessionStart },
-		assets: {
-			large_image: largeImage,
-			large_text: appName,
-		},
+		assets: Object.keys(assets).length > 0 ? assets : undefined,
 	};
 }
 
@@ -235,17 +299,20 @@ async function connect(): Promise<void> {
 
 	const config = getConfig();
 	if (!config.get<boolean>('enabled', true)) {
+		setStatus({ kind: 'disabled' });
 		log('Disabled via setting; not connecting.');
 		return;
 	}
 
-	const clientId = DEFAULT_APPLICATION_ID;
+	const clientId = DISCORD_APPLICATION_ID;
 
+	setStatus({ kind: 'connecting', clientId });
 	const client = new DiscordRpc(clientId);
 	rpc = client;
 	log(`Connecting to Discord with application id ${clientId}...`);
 	const ok = await client.connect();
 	if (!ok || rpc !== client) {
+		setStatus({ kind: 'disconnected', reason: 'Discord client not running or unreachable' });
 		log('Discord client not available. Will retry.');
 		if (rpc === client) {
 			rpc = undefined;
@@ -254,6 +321,7 @@ async function connect(): Promise<void> {
 		return;
 	}
 	sessionStart = Math.floor(Date.now() / 1000);
+	setStatus({ kind: 'connected', clientId, since: sessionStart });
 	log('Connected to Discord. Pushing initial presence.');
 	pushPresence();
 }
@@ -269,8 +337,15 @@ function disconnect(): void {
 	}
 }
 
+function showStatusCommand(): void {
+	if (outputChannel) {
+		outputChannel.show(true);
+	}
+	void vscode.window.showInformationMessage(`Discord presence: ${describeStatus(status)}`);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
-	outputChannel = vscode.window.createOutputChannel('Othcloud Discord Presence');
+	outputChannel = vscode.window.createOutputChannel('OTHCloud Discord Presence');
 	context.subscriptions.push(outputChannel);
 
 	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => pushPresence()));
@@ -280,6 +355,9 @@ export function activate(context: vscode.ExtensionContext): void {
 			void connect();
 		}
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('othcloud.discord.showStatus', () => showStatusCommand()));
+	context.subscriptions.push(vscode.commands.registerCommand('othcloud.discord.reconnect', () => void connect()));
 
 	context.subscriptions.push({ dispose: () => disconnect() });
 

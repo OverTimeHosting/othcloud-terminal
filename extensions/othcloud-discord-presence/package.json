@@ -24,7 +24,7 @@
 	},
 	"contributes": {
 		"configuration": {
-			"title": "Othcloud Discord Presence",
+			"title": "OTHCloud Discord Presence",
 			"properties": {
 				"othcloud.discord.enabled": {
 					"type": "boolean",
@@ -33,13 +33,43 @@
 				},
 				"othcloud.discord.applicationName": {
 					"type": "string",
-					"default": "Othcloud Terminal",
+					"default": "OTHCloud Terminal",
 					"description": "%config.applicationName%"
+				},
+				"othcloud.discord.detailsTemplate": {
+					"type": "string",
+					"default": "Editing {file}",
+					"description": "%config.detailsTemplate%"
+				},
+				"othcloud.discord.stateTemplate": {
+					"type": "string",
+					"default": "Workspace: {workspace} • {language}",
+					"description": "%config.stateTemplate%"
+				},
+				"othcloud.discord.idleDetailsTemplate": {
+					"type": "string",
+					"default": "{app} — {idle}",
+					"description": "%config.idleDetailsTemplate%"
 				},
 				"othcloud.discord.largeImage": {
 					"type": "string",
 					"default": "othcloud-logo",
 					"description": "%config.largeImage%"
+				},
+				"othcloud.discord.largeImageText": {
+					"type": "string",
+					"default": "",
+					"description": "%config.largeImageText%"
+				},
+				"othcloud.discord.smallImage": {
+					"type": "string",
+					"default": "",
+					"description": "%config.smallImage%"
+				},
+				"othcloud.discord.smallImageText": {
+					"type": "string",
+					"default": "",
+					"description": "%config.smallImageText%"
 				},
 				"othcloud.discord.idleText": {
 					"type": "string",
@@ -57,7 +87,19 @@
 					"description": "%config.showWorkspace%"
 				}
 			}
-		}
+		},
+		"commands": [
+			{
+				"command": "othcloud.discord.showStatus",
+				"title": "%cmd.showStatus%",
+				"category": "OTHCloud Discord"
+			},
+			{
+				"command": "othcloud.discord.reconnect",
+				"title": "%cmd.reconnect%",
+				"category": "OTHCloud Discord"
+			}
+		]
 	},
 	"devDependencies": {
 		"@types/node": "22.x"
