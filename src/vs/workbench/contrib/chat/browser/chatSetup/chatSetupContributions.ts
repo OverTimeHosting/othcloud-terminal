@@ -330,34 +330,6 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			}
 		}
 
-		class ChatSetupFromAccountsAction extends Action2 {
-
-			constructor() {
-				super({
-					id: 'workbench.action.chat.triggerSetupFromAccounts',
-					title: localize2('triggerChatSetupFromAccounts', "Sign in to use AI features..."),
-					menu: {
-						id: MenuId.AccountsContext,
-						group: '2_copilot',
-						when: ContextKeyExpr.and(
-							ChatContextKeys.Setup.hidden.negate(),
-							ChatContextKeys.Setup.installed.negate(),
-							ChatContextKeys.Entitlement.signedOut
-						)
-					}
-				});
-			}
-
-			override async run(accessor: ServicesAccessor): Promise<void> {
-				const commandService = accessor.get(ICommandService);
-				const telemetryService = accessor.get(ITelemetryService);
-
-				telemetryService.publicLog2<WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification>('workbenchActionExecuted', { id: CHAT_SETUP_ACTION_ID, from: 'accounts' });
-
-				return commandService.executeCommand(CHAT_SETUP_ACTION_ID);
-			}
-		}
-
 		const windowFocusListener = this._register(new MutableDisposable());
 		class UpgradePlanAction extends Action2 {
 			constructor() {
@@ -455,7 +427,6 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 
 		registerAction2(ChatSetupTriggerAction);
 		registerAction2(ChatSetupTriggerForceSignInDialogAction);
-		registerAction2(ChatSetupFromAccountsAction);
 		registerAction2(ChatSetupTriggerAnonymousWithoutDialogAction);
 		registerAction2(ChatSetupTriggerSupportAnonymousAction);
 		registerAction2(UpgradePlanAction);

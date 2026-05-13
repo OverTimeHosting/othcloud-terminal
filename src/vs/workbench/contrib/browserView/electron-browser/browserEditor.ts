@@ -196,6 +196,7 @@ export class BrowserEditor extends EditorPane {
 	private overlayManager: BrowserOverlayManager | undefined;
 	private _elementSelectionCts: CancellationTokenSource | undefined;
 	private _screenshotTimeout: ReturnType<typeof setTimeout> | undefined;
+	private _notificationOverlays: readonly IBrowserOverlayInfo[] = [];
 
 	constructor(
 		group: IEditorGroup,
@@ -416,7 +417,9 @@ export class BrowserEditor extends EditorPane {
 		}));
 
 		this._inputDisposables.add(this.overlayManager!.onDidChangeOverlayState(() => {
-			this.checkOverlays();
+			// Re-layout so that both the pause state (other overlays) and the WebContentsView
+			// bounds (clipped around any notification overlays) update together.
+			this.layoutBrowserContainer();
 		}));
 
 		// Listen for zoom level changes and update browser view zoom factor
@@ -496,30 +499,29 @@ export class BrowserEditor extends EditorPane {
 		if (!this.overlayManager) {
 			return;
 		}
-		// Notifications no longer pause the browser view — they are filtered out so
-		// the user can keep interacting with the page while a notification is shown.
-		const overlappingOverlays = this.overlayManager.getOverlappingOverlays(this._browserContainer)
-			.filter(overlay => overlay.type !== BrowserOverlayType.Notification);
-		const hasOverlappingOverlay = overlappingOverlays.length > 0;
-		this.updateOverlayPauseMessage(overlappingOverlays);
+		// Notifications don't pause the browser view; instead the WebContentsView is
+		// clipped around them in layoutBrowserContainer() so the toast stays visible
+		// over the placeholder screenshot while the rest of the page remains interactive.
+		const allOverlays = this.overlayManager.getOverlappingOverlays(this._browserContainer);
+		this._notificationOverlays = allOverlays.filter(overlay => overlay.type === BrowserOverlayType.Notification);
+		const pausingOverlays = allOverlays.filter(overlay => overlay.type !== BrowserOverlayType.Notification);
+
+		this.clearOverlayPauseMessage();
+
+		const hasOverlappingOverlay = pausingOverlays.length > 0;
 		if (hasOverlappingOverlay !== this._overlayVisible) {
 			this._overlayVisible = hasOverlappingOverlay;
 			this.updateVisibility();
 		}
 	}
 
-	private updateOverlayPauseMessage(overlappingOverlays: readonly IBrowserOverlayInfo[]): void {
-		// Only show the pause message for notification overlays
-		const hasNotificationOverlay = overlappingOverlays.some(overlay => overlay.type === BrowserOverlayType.Notification);
-		this._overlayPauseContainer.classList.toggle('show-message', hasNotificationOverlay);
-
-		if (hasNotificationOverlay) {
-			this._overlayPauseHeading.textContent = localize('browser.overlayPauseHeading.notification', "Paused due to Notification");
-			this._overlayPauseDetail.textContent = localize('browser.overlayPauseDetail.notification', "Dismiss the notification to continue using the browser.");
-		} else {
-			this._overlayPauseHeading.textContent = '';
-			this._overlayPauseDetail.textContent = '';
-		}
+	private clearOverlayPauseMessage(): void {
+		// No pause-overlay message is shown today — notifications no longer pause the
+		// browser, and the other overlays (menus, hovers, dialogs) hide the view without
+		// any explanatory text.
+		this._overlayPauseContainer.classList.remove('show-message');
+		this._overlayPauseHeading.textContent = '';
+		this._overlayPauseDetail.textContent = '';
 	}
 
 	private updateErrorDisplay(): void {
@@ -834,12 +836,26 @@ export class BrowserEditor extends EditorPane {
 			this.checkOverlays();
 
 			const containerRect = this._browserContainer.getBoundingClientRect();
+
+			// Clip the WebContentsView so it ends above any overlapping notification
+			// toast(s). The placeholder screenshot covers the full container, so the
+			// strip exposed below the clip shows the screenshot, and the toast HTML
+			// (z-index 1000) renders on top of it instead of being hidden behind the
+			// native view.
+			let clippedBottom = containerRect.bottom;
+			for (const overlay of this._notificationOverlays) {
+				if (overlay.rect.top < clippedBottom) {
+					clippedBottom = overlay.rect.top;
+				}
+			}
+			const clippedHeight = Math.max(0, clippedBottom - containerRect.top);
+
 			void this._model.layout({
 				windowId: this.group.windowId,
 				x: containerRect.left,
 				y: containerRect.top,
 				width: containerRect.width,
-				height: containerRect.height,
+				height: clippedHeight,
 				zoomFactor: getZoomFactor(this.window)
 			});
 		}

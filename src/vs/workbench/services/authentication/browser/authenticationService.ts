@@ -443,7 +443,7 @@ export class AuthenticationService extends Disposable implements IAuthentication
 					),
 					this._disposedSource.token
 				),
-				5000
+				30000
 			);
 			provider = this._authenticationProviders.get(providerId);
 			if (provider) {

@@ -4448,7 +4448,7 @@
 					},
 					"gitlens.ai.enabled": {
 						"type": "boolean",
-						"default": true,
+						"default": false,
 						"markdownDescription": "Specifies whether to enable GitLens' AI-powered features",
 						"scope": "window",
 						"order": 2,
@@ -16497,16 +16497,6 @@
 			],
 			"git.commit": [
 				{
-					"command": "gitlens.composeCommits:scm",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-					"group": "4_gitlens@1"
-				},
-				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "4_gitlens@2"
-				},
-				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 					"group": "4_gitlens@3"
@@ -17390,11 +17380,6 @@
 			],
 			"gitlens/scm/title": [
 				{
-					"command": "gitlens.composeCommits:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens@1"
-				},
-				{
 					"command": "gitlens.showGraph",
 					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
 					"group": "8_gitlens@1"
@@ -17405,23 +17390,7 @@
 					"group": "8_gitlens@2"
 				}
 			],
-			"gitlens/scm/title/ai": [
-				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.composeCommits:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens@2"
-				},
-				{
-					"command": "gitlens.ai.switchProvider:scm",
-					"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled",
-					"group": "9_gitlens@1"
-				}
-			],
+			"gitlens/scm/title/ai": [],
 			"gitlens/share": [
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",
@@ -19284,12 +19253,7 @@
 			"scm/title": [
 				{
 					"submenu": "gitlens/scm/title",
-					"when": "scmProvider == git && gitlens:enabled && (!gitlens:gk:organization:ai:enabled || !config.gitlens.ai.enabled)",
-					"group": "navigation@-3"
-				},
-				{
-					"submenu": "gitlens/scm/title/ai",
-					"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+					"when": "scmProvider == git && gitlens:enabled",
 					"group": "navigation@-3"
 				},
 				{
@@ -19306,16 +19270,6 @@
 					"command": "gitlens.visualizeHistory.repo:scm",
 					"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepositoryInline.visualHistory",
 					"group": "navigation@0"
-				},
-				{
-					"command": "gitlens.composeCommits:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.addAuthors",
@@ -26665,16 +26619,6 @@
 					"command": "gitlens.fetch:graph",
 					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
 					"group": "1_gitlens_actions@3"
-				},
-				{
-					"command": "gitlens.composeCommits:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.ai.generateCommitMessage:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.graph.commitViaSCM",
