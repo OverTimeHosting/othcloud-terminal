@@ -17,16 +17,18 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { DevelopersInput } from './developersInput.js';
 import { DevelopersPage } from './developersPage.js';
-import { DevelopersAccountMenuContribution } from './developersAccountMenu.js';
 import { DevelopersActivityBarContribution, OthcloudActivityBarEnabledContext, STORAGE_ACTIVITY_BAR_ENABLED } from './developersActivityBar.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { DevelopersClient, DevStatus, setAccessToken } from './developersClient.js';
+import { OthcloudIsDeveloperContext } from '../../othcloudAccount/common/othcloudAccountService.js';
 
 const OPEN_DEVELOPERS_COMMAND = 'othcloud.developers.open';
 
 // Top-level menubar entry that sits next to Terminal (order 7) — see
 // src/vs/workbench/browser/parts/titlebar/menubarControl.ts for siblings.
+// Gated to users with developer-or-higher role on their Othcloud account; the
+// raw context key is set by OthcloudAccountService.
 const MenubarDevelopersMenu = new MenuId('MenubarDevelopersMenu');
 
 MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
@@ -37,6 +39,7 @@ MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 		mnemonicTitle: localize({ key: 'mDevelopers', comment: ['&& denotes a mnemonic'] }, "&&Developers"),
 	},
 	order: 8,
+	when: OthcloudIsDeveloperContext,
 });
 
 class DevelopersInputSerializer implements IEditorSerializer {
@@ -86,6 +89,7 @@ registerAction2(class OpenDevelopersAction extends Action2 {
 			category: localize2('othcloud.developers.category', 'Developers'),
 			icon: Codicon.tools,
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 			menu: [{
 				id: MenubarDevelopersMenu,
 				group: '1_open',
@@ -119,6 +123,7 @@ registerAction2(class OpenTasksWindowAction extends Action2 {
 			category: localize2('othcloud.developers.category', 'Developers'),
 			icon: Codicon.checklist,
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 			menu: [{
 				id: MenubarDevelopersMenu,
 				group: '1_open',
@@ -151,6 +156,7 @@ registerAction2(class OpenServicesWindowAction extends Action2 {
 			category: localize2('othcloud.developers.category', 'Developers'),
 			icon: Codicon.server,
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 			menu: [{
 				id: MenubarDevelopersMenu,
 				group: '1_open',
@@ -174,6 +180,7 @@ registerAction2(class NewTaskFromSelectionAction extends Action2 {
 			title: localize2('othcloud.developers.newTaskFromSelection', 'othcloud Developer: Create Task from Selection'),
 			category: localize2('othcloud.developers.category', 'Developers'),
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 			menu: [
 				{
 					id: MenuId.EditorContext,
@@ -246,6 +253,7 @@ registerAction2(class SignOutAction extends Action2 {
 			title: localize2('othcloud.developers.signOutAction', 'Sign out of othcloud Developer'),
 			category: localize2('othcloud.developers.category', 'Developers'),
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 		});
 	}
 
@@ -265,6 +273,7 @@ registerAction2(class ManageStatusesAction extends Action2 {
 			title: localize2('othcloud.developers.manageStatuses', 'Manage Task Statuses'),
 			category: localize2('othcloud.developers.category', 'Developers'),
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 			menu: [{
 				id: MenubarDevelopersMenu,
 				group: '2_settings',
@@ -361,6 +370,7 @@ registerAction2(class ToggleActivityBarAction extends Action2 {
 			title: localize2('othcloud.developers.toggleActivityBar', 'Show in Activity Bar'),
 			category: localize2('othcloud.developers.category', 'Developers'),
 			f1: true,
+			precondition: OthcloudIsDeveloperContext,
 			toggled: {
 				condition: OthcloudActivityBarEnabledContext,
 				title: localize('othcloud.developers.activityBarOn', 'Show in Activity Bar (on)'),
@@ -381,11 +391,10 @@ registerAction2(class ToggleActivityBarAction extends Action2 {
 	}
 });
 
-registerWorkbenchContribution2(
-	DevelopersAccountMenuContribution.ID,
-	DevelopersAccountMenuContribution,
-	WorkbenchPhase.AfterRestored,
-);
+// `DevelopersAccountMenuContribution` is intentionally not registered —
+// the Othcloud Account dropdown is the single login surface (see
+// `othcloudAccountMenu.ts`). Developer features are now gated by the
+// `othcloud.account.isDeveloper` context key on the Othcloud user's role.
 
 registerWorkbenchContribution2(
 	DevelopersActivityBarContribution.ID,

@@ -33,22 +33,7 @@
     }
   },
   "contributes": {
-    "authentication": [
-      {
-        "label": "GitHub",
-        "id": "github",
-        "authorizationServerGlobs": [
-          "https://github.com/login/oauth"
-        ]
-      },
-      {
-        "label": "GitHub Enterprise Server",
-        "id": "github-enterprise",
-        "authorizationServerGlobs": [
-          "*"
-        ]
-      }
-    ],
+    "_note_othcloud_disabled_authentication": "GitHub authentication provider registrations removed for OTHCloud — sign-in is exclusively through the Othcloud Account.",
     "configuration": [
       {
         "title": "%config.github-enterprise.title%",

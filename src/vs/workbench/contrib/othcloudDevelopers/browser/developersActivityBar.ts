@@ -10,7 +10,8 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { DevelopersClient, setAccessToken, DevTask } from './developersClient.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
-import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { OthcloudIsDeveloperContext } from '../../othcloudAccount/common/othcloudAccountService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -185,7 +186,7 @@ const viewDescriptor: IViewDescriptor = {
 	ctorDescriptor: new SyncDescriptor(DevelopersSidebarView),
 	canToggleVisibility: false,
 	canMoveView: false,
-	when: OthcloudActivityBarEnabledContext,
+	when: ContextKeyExpr.and(OthcloudActivityBarEnabledContext, OthcloudIsDeveloperContext),
 	order: 1,
 };
 

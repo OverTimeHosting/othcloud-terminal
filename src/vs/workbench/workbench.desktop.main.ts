@@ -124,6 +124,9 @@ import './contrib/debug/electron-browser/extensionHostDebugService.js';
 // Extensions Management
 import './contrib/extensions/electron-browser/extensions.contribution.js';
 
+// Othcloud Console (dedicated frameless window for othcloud.xyz)
+import './contrib/othcloudConsole/electron-browser/othcloudConsole.contribution.js';
+
 // Issues
 import './contrib/issue/electron-browser/issue.contribution.js';
 

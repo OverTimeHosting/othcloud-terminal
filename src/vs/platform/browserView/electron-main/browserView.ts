@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WebContentsView, webContents } from 'electron';
+import { WebContentsView, webContents, shell } from 'electron';
 import { FileAccess } from '../../../base/common/network.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
@@ -273,6 +273,27 @@ export class BrowserView extends Disposable implements ICDPTarget {
 		// Navigation events (when URL actually changes)
 		webContents.on('did-navigate', fireNavigationEvent);
 		webContents.on('did-navigate-in-page', fireNavigationEvent);
+
+		// Forward non-web schemes (mailto:, tel:, custom URL protocols like
+		// othcloud-terminal://) to the OS. Chromium otherwise rejects these as
+		// unknown-scheme navigations and the user gets no feedback. Going via
+		// shell.openExternal lets the OS protocol handler take over — which is
+		// what makes the desktop pairing deep-link round-trip work from inside
+		// the embedded browser tab.
+		webContents.on('will-navigate', (event, url) => {
+			const colon = url.indexOf(':');
+			if (colon <= 0) {
+				return;
+			}
+			const scheme = url.substring(0, colon).toLowerCase();
+			if (scheme === 'http' || scheme === 'https' || scheme === 'about'
+				|| scheme === 'file' || scheme === 'data' || scheme === 'blob'
+				|| scheme === 'javascript' || scheme === 'devtools') {
+				return;
+			}
+			event.preventDefault();
+			void shell.openExternal(url).catch(() => { /* nothing useful to do */ });
+		});
 
 		// Focus events
 		webContents.on('focus', () => {

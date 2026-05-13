@@ -30,20 +30,7 @@
     "workspace"
   ],
   "contributes": {
-    "authentication": [
-      {
-        "label": "Microsoft",
-        "id": "microsoft",
-        "authorizationServerGlobs": [
-          "https://login.microsoftonline.com/*",
-          "https://login.microsoftonline.com/*/v2.0"
-        ]
-      },
-      {
-        "label": "Microsoft Sovereign Cloud",
-        "id": "microsoft-sovereign-cloud"
-      }
-    ],
+    "_note_othcloud_disabled_authentication": "Microsoft authentication provider registrations removed for OTHCloud — sign-in is exclusively through the Othcloud Account.",
     "configuration": [
       {
         "title": "Microsoft Sovereign Cloud",

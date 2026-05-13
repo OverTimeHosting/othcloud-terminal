@@ -44,6 +44,12 @@ export interface IBrowserEditorInputData {
 	readonly url?: string;
 	readonly title?: string;
 	readonly favicon?: string;
+	/**
+	 * When true, the BrowserEditor renders the tab without its navigation bar
+	 * (back/forward/url/quick-links). Set by callers like the Othcloud sidebar
+	 * that want a pure content tab.
+	 */
+	readonly hideChrome?: boolean;
 }
 
 export class BrowserEditorInput extends EditorInput {
@@ -135,7 +141,13 @@ export class BrowserEditorInput extends EditorInput {
 		}
 
 		const url = this._model?.url ?? this._initialData.url ?? '';
-		return BrowserViewUri.forUrl(url, this._id);
+		return BrowserViewUri.forUrl(url, this._id, {
+			hideChrome: this._initialData.hideChrome,
+		});
+	}
+
+	get hideChrome(): boolean {
+		return !!this._initialData.hideChrome;
 	}
 
 	override getIcon(): ThemeIcon | URI | undefined {
@@ -222,7 +234,8 @@ export class BrowserEditorInput extends EditorInput {
 			id: generateUuid(),
 			url: currentUrl,
 			title: this._model?.title ?? this._initialData.title,
-			favicon: this._model?.favicon ?? this._initialData.favicon
+			favicon: this._model?.favicon ?? this._initialData.favicon,
+			hideChrome: this._initialData.hideChrome,
 		});
 	}
 
@@ -252,7 +265,8 @@ export class BrowserEditorInput extends EditorInput {
 			id: this._id,
 			url: this._model ? this._model.url : this._initialData.url,
 			title: this._model ? this._model.title : this._initialData.title,
-			favicon: this._model ? this._model.favicon : this._initialData.favicon
+			favicon: this._model ? this._model.favicon : this._initialData.favicon,
+			hideChrome: this._initialData.hideChrome,
 		};
 	}
 }

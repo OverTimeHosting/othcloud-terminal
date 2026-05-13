@@ -38,6 +38,8 @@ import { EncryptionMainService } from '../../platform/encryption/electron-main/e
 import { NativeBrowserElementsMainService, INativeBrowserElementsMainService } from '../../platform/browserElements/electron-main/nativeBrowserElementsMainService.js';
 import { ipcBrowserViewChannelName } from '../../platform/browserView/common/browserView.js';
 import { BrowserViewMainService, IBrowserViewMainService } from '../../platform/browserView/electron-main/browserViewMainService.js';
+import { IOthcloudConsoleService, IPC_OTHCLOUD_CONSOLE_CHANNEL } from '../../platform/othcloudConsole/common/othcloudConsole.js';
+import { OthcloudConsoleMainService } from '../../platform/othcloudConsole/electron-main/othcloudConsoleMainService.js';
 import { NativeParsedArgs } from '../../platform/environment/common/argv.js';
 import { IEnvironmentMainService } from '../../platform/environment/electron-main/environmentMainService.js';
 import { isLaunchedFromCli } from '../../platform/environment/node/argvHelper.js';
@@ -1042,6 +1044,9 @@ export class CodeApplication extends Disposable {
 		// Browser View
 		services.set(IBrowserViewMainService, new SyncDescriptor(BrowserViewMainService, undefined, false /* proxied to other processes */));
 
+		// Othcloud Console (dedicated frameless window loading othcloud.xyz)
+		services.set(IOthcloudConsoleService, new SyncDescriptor(OthcloudConsoleMainService, undefined, false /* proxied to other processes */));
+
 		// Keyboard Layout
 		services.set(IKeyboardLayoutMainService, new SyncDescriptor(KeyboardLayoutMainService));
 
@@ -1202,6 +1207,10 @@ export class CodeApplication extends Disposable {
 		// Browser View
 		const browserViewChannel = ProxyChannel.fromService(accessor.get(IBrowserViewMainService), disposables);
 		mainProcessElectronServer.registerChannel(ipcBrowserViewChannelName, browserViewChannel);
+
+		// Othcloud Console
+		const othcloudConsoleChannel = ProxyChannel.fromService(accessor.get(IOthcloudConsoleService), disposables);
+		mainProcessElectronServer.registerChannel(IPC_OTHCLOUD_CONSOLE_CHANNEL, othcloudConsoleChannel);
 
 		// Signing
 		const signChannel = ProxyChannel.fromService(accessor.get(ISignService), disposables);

@@ -174,6 +174,7 @@ export class BrowserEditor extends EditorPane {
 	private _currentKeyDownEvent: IBrowserViewKeyDownEvent | undefined;
 
 	private _navigationBar!: BrowserNavigationBar;
+	private _toolbarElement!: HTMLElement;
 	private _browserContainer!: HTMLElement;
 	private _placeholderScreenshot!: HTMLElement;
 	private _overlayPauseContainer!: HTMLElement;
@@ -238,6 +239,7 @@ export class BrowserEditor extends EditorPane {
 
 		// Create toolbar with navigation buttons and URL input
 		const toolbar = $('.browser-toolbar');
+		this._toolbarElement = toolbar;
 
 		// Create navigation bar widget with scoped context
 		this._navigationBar = this._register(new BrowserNavigationBar(this, toolbar, this.instantiationService, contextKeyService));
@@ -317,6 +319,10 @@ export class BrowserEditor extends EditorPane {
 		if (token.isCancellationRequested) {
 			return;
 		}
+
+		// `hideChrome` inputs (used by the Othcloud sidebar) render as content-
+		// only tabs — no navigation bar / URL input / quick-links.
+		this._toolbarElement.style.display = input.hideChrome ? 'none' : '';
 
 		this._inputDisposables.clear();
 

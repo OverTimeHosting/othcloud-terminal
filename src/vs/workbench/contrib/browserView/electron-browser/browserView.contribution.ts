@@ -76,7 +76,8 @@ class BrowserEditorResolverContribution implements IWorkbenchContribution {
 
 					const browserInput = instantiationService.createInstance(BrowserEditorInput, {
 						id: parsed.id,
-						url: parsed.url
+						url: parsed.url,
+						hideChrome: BrowserViewUri.isChromeHidden(resource),
 					});
 
 					// Start resolving the input right away. This will create the browser view.

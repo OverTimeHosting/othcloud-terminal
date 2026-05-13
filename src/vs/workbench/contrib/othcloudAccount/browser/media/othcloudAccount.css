@@ -1,0 +1,293 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.othcloud-account-sidebar .othcloud-account-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+}
+
+/* Signed-out CTA card */
+.othcloud-account-card.signed-out {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: 8px;
+	padding: 18px 12px;
+	border: 1px dashed var(--vscode-panel-border);
+	border-radius: 6px;
+}
+
+.othcloud-account-card .othcloud-account-icon {
+	font-size: 28px;
+	line-height: 1;
+	opacity: 0.85;
+}
+
+.othcloud-account-card .othcloud-account-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.othcloud-account-card .othcloud-account-subtitle {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.4;
+}
+
+.othcloud-account-cta {
+	margin-top: 6px;
+	padding: 6px 14px;
+	border: none;
+	border-radius: 3px;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.othcloud-account-cta:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+/* Signed-in header */
+.othcloud-account-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.othcloud-account-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	flex: 0 0 auto;
+	object-fit: cover;
+}
+
+.othcloud-account-avatar.placeholder.codicon {
+	/* Codicon font defaults to 16px; nudge up for the larger avatar circle. */
+	font-size: 18px;
+}
+
+.othcloud-account-name-wrap {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.othcloud-account-name {
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.othcloud-account-email {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.othcloud-account-signout {
+	background: transparent;
+	border: 1px solid transparent;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	padding: 2px 6px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.othcloud-account-signout:hover {
+	color: var(--vscode-foreground);
+	border-color: var(--vscode-panel-border);
+}
+
+.othcloud-account-iconbtn {
+	background: transparent;
+	border: 1px solid transparent;
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	width: 22px;
+	height: 22px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	cursor: pointer;
+	flex: 0 0 auto;
+}
+
+.othcloud-account-iconbtn:hover {
+	color: var(--vscode-foreground);
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Placeholder sections */
+.othcloud-account-section {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.othcloud-account-section-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.othcloud-account-section-icon {
+	font-size: 13px;
+	opacity: 0.85;
+}
+
+.othcloud-account-section-count {
+	margin-left: auto;
+	font-size: 10px;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	border-radius: 8px;
+	padding: 0 6px;
+	min-width: 16px;
+	text-align: center;
+	letter-spacing: normal;
+	text-transform: none;
+}
+
+.othcloud-account-section-body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding-left: 4px;
+}
+
+.othcloud-account-section-empty {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	padding-left: 16px;
+	font-style: italic;
+	opacity: 0.7;
+}
+
+.othcloud-account-section-error {
+	font-size: 12px;
+	color: var(--vscode-errorForeground);
+	padding-left: 16px;
+	word-break: break-word;
+}
+
+/* Service rows */
+.othcloud-account-item {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	column-gap: 6px;
+	row-gap: 1px;
+	padding: 4px 6px;
+	border-radius: 3px;
+	cursor: default;
+	text-align: left;
+	background: transparent;
+	border: 1px solid transparent;
+	color: inherit;
+	font: inherit;
+	align-items: center;
+}
+
+.othcloud-account-item-chevron {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	flex: 0 0 auto;
+}
+
+.othcloud-account-item.clickable:hover .othcloud-account-item-chevron {
+	color: var(--vscode-foreground);
+}
+
+.othcloud-account-item.child {
+	/* The inline padding-left is applied per-row; this just tweaks affordance. */
+	font-size: 12px;
+}
+
+.othcloud-account-item.clickable {
+	cursor: pointer;
+}
+
+.othcloud-account-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.othcloud-account-item.clickable:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.othcloud-account-item-open {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	opacity: 0;
+	transition: opacity 0.1s;
+	align-self: center;
+}
+
+.othcloud-account-item.clickable:hover .othcloud-account-item-open,
+.othcloud-account-item.clickable:focus-visible .othcloud-account-item-open {
+	opacity: 1;
+}
+
+.othcloud-account-item-name {
+	font-size: 12px;
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.othcloud-account-item-meta {
+	grid-column: 1 / -1;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.othcloud-account-item-status {
+	font-size: 10px;
+	text-transform: uppercase;
+	padding: 0 6px;
+	border-radius: 8px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	letter-spacing: 0.04em;
+	align-self: center;
+}
+
+.othcloud-account-item-status.s-active {
+	background: color-mix(in srgb, var(--vscode-testing-iconPassed, #3fb950) 30%, transparent);
+	color: var(--vscode-testing-iconPassed, #3fb950);
+}
+
+.othcloud-account-item-status.s-inactive {
+	background: color-mix(in srgb, var(--vscode-disabledForeground, #888) 25%, transparent);
+	color: var(--vscode-descriptionForeground);
+}

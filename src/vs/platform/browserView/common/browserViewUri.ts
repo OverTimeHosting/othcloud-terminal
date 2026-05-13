@@ -17,14 +17,36 @@ export namespace BrowserViewUri {
 	/**
 	 * Creates a resource URI for a browser view with the given URL.
 	 * Optionally accepts an ID; if not provided, a new UUID is generated.
+	 *
+	 * Pass `hideChrome: true` to render the tab without the navigation bar
+	 * (back/forward/url/quick-links). Used by the Othcloud sidebar so projects
+	 * open as plain content tabs.
 	 */
-	export function forUrl(url: string | undefined, id?: string): URI {
+	export function forUrl(url: string | undefined, id?: string, options?: { hideChrome?: boolean }): URI {
 		const viewId = id ?? generateUuid();
+		const params: string[] = [];
+		if (url) {
+			params.push(`url=${encodeURIComponent(url)}`);
+		}
+		if (options?.hideChrome) {
+			params.push('chrome=hidden');
+		}
 		return URI.from({
 			scheme,
 			path: `/${viewId}`,
-			query: url ? `url=${encodeURIComponent(url)}` : undefined
+			query: params.length > 0 ? params.join('&') : undefined,
 		});
+	}
+
+	/**
+	 * True when the URI carries `chrome=hidden` — the BrowserEditor strips its
+	 * navigation toolbar in that case.
+	 */
+	export function isChromeHidden(resource: URI): boolean {
+		if (resource.scheme !== scheme || !resource.query) {
+			return false;
+		}
+		return new URLSearchParams(resource.query).get('chrome') === 'hidden';
 	}
 
 	/**
