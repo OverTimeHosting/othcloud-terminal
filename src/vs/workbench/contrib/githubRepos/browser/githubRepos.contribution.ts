@@ -27,6 +27,7 @@ import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPan
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { append, $, addDisposableListener, EventType, clearNode } from '../../../../base/browser/dom.js';
+import { DomScrollableElement } from '../../../../base/browser/ui/scrollbar/scrollableElement.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 
 export interface IRepoEntry {
@@ -70,6 +71,7 @@ class GithubReposViewPane extends ViewPane {
 	static readonly TITLE = localize2('githubRepos.viewTitle', "Repositories");
 
 	private listContainer!: HTMLElement;
+	private scrollbar!: DomScrollableElement;
 	private readonly hasReposKey: IContextKey<boolean>;
 
 	constructor(
@@ -104,17 +106,20 @@ class GithubReposViewPane extends ViewPane {
 	protected override renderBody(container: HTMLElement): void {
 		super.renderBody(container);
 		container.classList.add('github-repos-view');
-		this.listContainer = append(container, $('.github-repos-list'));
+		this.listContainer = $('.github-repos-list');
 		this.listContainer.style.padding = '4px 0';
-		this.listContainer.style.overflowY = 'auto';
-		this.listContainer.style.height = '100%';
+		this.scrollbar = this._register(new DomScrollableElement(this.listContainer, {}));
+		container.appendChild(this.scrollbar.getDomNode());
 		this.renderEntries();
 	}
 
 	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
-		if (this.listContainer) {
-			this.listContainer.style.height = `${height}px`;
+		if (this.scrollbar) {
+			const node = this.scrollbar.getDomNode();
+			node.style.height = `${height}px`;
+			node.style.width = `${width}px`;
+			this.scrollbar.scanDomNode();
 		}
 	}
 
@@ -130,6 +135,7 @@ class GithubReposViewPane extends ViewPane {
 			empty.style.padding = '12px';
 			empty.style.opacity = '0.7';
 			empty.textContent = localize('githubRepos.empty', "No repositories yet. Use the title bar actions to add one or scan a folder.");
+			this.scrollbar?.scanDomNode();
 			return;
 		}
 
@@ -172,6 +178,8 @@ class GithubReposViewPane extends ViewPane {
 				this.removeEntry(entry.id);
 			}));
 		}
+
+		this.scrollbar?.scanDomNode();
 	}
 
 	private launch(entry: IRepoEntry): void {
