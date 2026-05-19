@@ -196,7 +196,7 @@ jobs:
             remote/web/node_modules
             test/*/node_modules
             .vscode/extensions/*/node_modules
-          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', '.nvmrc') }}
+          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
@@ -346,7 +346,7 @@ jobs:
             remote/web/node_modules
             test/*/node_modules
             .vscode/extensions/*/node_modules
-          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', '.nvmrc') }}
+          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
@@ -475,7 +475,7 @@ jobs:
             remote/web/node_modules
             test/*/node_modules
             .vscode/extensions/*/node_modules
-          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', '.nvmrc') }}
+          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
