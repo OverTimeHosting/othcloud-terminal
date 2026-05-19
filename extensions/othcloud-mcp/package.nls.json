@@ -4,7 +4,7 @@
 	"untrusted.description": "The MCP server exposes editor, source control, and terminal control to local clients. It is disabled in untrusted workspaces.",
 	"config.enabled": "Run the local MCP server on startup.",
 	"config.host": "Loopback address to bind to. Keep on 127.0.0.1 unless you understand the implications.",
-	"config.port": "TCP port for the MCP HTTP+SSE server. 0 = pick a free port at startup.",
+	"config.port": "TCP port for the MCP HTTP+SSE server. 0 = sticky port: pick a free port the first time, then reuse it across restarts.",
 	"config.allowedOrigins": "Additional HTTP Origin values to accept on the SSE endpoint. Loopback origins are always allowed.",
 	"cmd.showStatus": "Show Server Status",
 	"cmd.copyConfig": "Copy Claude Code MCP Config to Clipboard",

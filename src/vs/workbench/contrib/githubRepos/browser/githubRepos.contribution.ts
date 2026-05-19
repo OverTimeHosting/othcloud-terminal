@@ -28,6 +28,7 @@ import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContaine
 import { IHostService } from '../../../services/host/browser/host.js';
 import { append, $, addDisposableListener, EventType, clearNode } from '../../../../base/browser/dom.js';
 import { DomScrollableElement } from '../../../../base/browser/ui/scrollbar/scrollableElement.js';
+import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 
 export interface IRepoEntry {
@@ -108,8 +109,16 @@ class GithubReposViewPane extends ViewPane {
 		container.classList.add('github-repos-view');
 		this.listContainer = $('.github-repos-list');
 		this.listContainer.style.padding = '4px 0';
-		this.scrollbar = this._register(new DomScrollableElement(this.listContainer, {}));
-		container.appendChild(this.scrollbar.getDomNode());
+		this.scrollbar = this._register(new DomScrollableElement(this.listContainer, {
+			alwaysConsumeMouseWheel: true,
+			horizontal: ScrollbarVisibility.Hidden,
+			vertical: ScrollbarVisibility.Auto,
+			useShadows: false,
+		}));
+		const scrollbarNode = this.scrollbar.getDomNode();
+		scrollbarNode.style.height = '100%';
+		scrollbarNode.style.width = '100%';
+		container.appendChild(scrollbarNode);
 		this.renderEntries();
 	}
 

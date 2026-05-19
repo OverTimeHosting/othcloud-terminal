@@ -15,11 +15,24 @@ export function buildTools(): Map<string, McpToolDefinition> {
 		gitUnstageTool(),
 		gitSetMessageTool(),
 		gitCommitTool(),
+		gitDiffTool(),
+		gitLogTool(),
+		gitBranchTool(),
+		gitCheckoutTool(),
 		editorOpenFileTool(),
 		editorRevealRangeTool(),
 		editorSplitTool(),
+		editorGetSelectionTool(),
+		editorInsertTextTool(),
 		browserOpenTool(),
 		terminalRunTool(),
+		workspaceListTool(),
+		workspaceFindFilesTool(),
+		fsReadFileTool(),
+		fsWriteFileTool(),
+		diagnosticsGetTool(),
+		commandExecuteTool(),
+		notificationShowTool(),
 	];
 	const map = new Map<string, McpToolDefinition>();
 	for (const t of tools) { map.set(t.name, t); }
@@ -397,4 +410,438 @@ function resolveTargetUri(args: Record<string, unknown>): vscode.Uri {
 		throw new Error(`Cannot resolve relative path without a workspace: ${p}`);
 	}
 	return vscode.Uri.joinPath(folders[0].uri, p);
+}
+
+function resolvePathUri(p: string): vscode.Uri {
+	if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(p)) {
+		return vscode.Uri.parse(p);
+	}
+	if (path.isAbsolute(p)) {
+		return vscode.Uri.file(p);
+	}
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders || folders.length === 0) {
+		throw new Error(`Cannot resolve relative path without a workspace: ${p}`);
+	}
+	return vscode.Uri.joinPath(folders[0].uri, p);
+}
+
+function gitDiffTool(): McpToolDefinition {
+	return {
+		name: 'git.diff',
+		description: 'Return the unified diff for the working tree (default) or the staged index (cached: true). Optionally narrow to a single file path.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				...repoArg,
+				cached: { type: 'boolean', description: 'Diff the staged index against HEAD instead of the working tree against the index. Default false.' },
+				path: { type: 'string', description: 'Optional repo-relative or absolute path. When set, returns the per-file diff.' },
+			},
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const api = await getGitApi();
+			const repo = pickRepository(api, typeof args.repository === 'string' ? args.repository : undefined);
+			if (typeof args.path === 'string' && args.path.length > 0) {
+				const [resolved] = resolveRepoPaths(repo, [args.path]);
+				const diff = await repo.diffWithHEAD(resolved);
+				return { path: path.relative(repo.rootUri.fsPath, resolved), diff };
+			}
+			const cached = args.cached === true;
+			const diff = await repo.diff(cached);
+			return { cached, diff };
+		},
+	};
+}
+
+function gitLogTool(): McpToolDefinition {
+	return {
+		name: 'git.log',
+		description: 'Return the most recent commits on the current branch.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				...repoArg,
+				maxEntries: { type: 'number', description: 'Max commits to return. Default 20.' },
+				path: { type: 'string', description: 'Only include commits that touched this path.' },
+				ref: { type: 'string', description: 'Start from this ref instead of HEAD.' },
+			},
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const api = await getGitApi();
+			const repo = pickRepository(api, typeof args.repository === 'string' ? args.repository : undefined);
+			const maxEntries = typeof args.maxEntries === 'number' ? Math.max(1, Math.floor(args.maxEntries)) : 20;
+			const commits = await repo.log({
+				maxEntries,
+				path: typeof args.path === 'string' ? args.path : undefined,
+				ref: typeof args.ref === 'string' ? args.ref : undefined,
+			});
+			return {
+				commits: commits.map(c => ({
+					hash: c.hash,
+					message: c.message,
+					author: c.authorName,
+					email: c.authorEmail,
+					date: c.authorDate?.toISOString(),
+					parents: c.parents,
+				})),
+			};
+		},
+	};
+}
+
+function gitBranchTool(): McpToolDefinition {
+	return {
+		name: 'git.branch',
+		description: 'List branches (local by default) and return the currently checked-out branch.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				...repoArg,
+				remote: { type: 'boolean', description: 'Include remote-tracking branches. Default false.' },
+				pattern: { type: 'string', description: 'Optional refname pattern filter.' },
+				count: { type: 'number', description: 'Max branches to return. Default 100.' },
+			},
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const api = await getGitApi();
+			const repo = pickRepository(api, typeof args.repository === 'string' ? args.repository : undefined);
+			const branches = await repo.getBranches({
+				remote: args.remote === true,
+				pattern: typeof args.pattern === 'string' ? args.pattern : undefined,
+				count: typeof args.count === 'number' ? Math.max(1, Math.floor(args.count)) : 100,
+			});
+			return {
+				current: repo.state.HEAD?.name,
+				branches: branches.map(b => ({ name: b.name, commit: b.commit, remote: b.remote })),
+			};
+		},
+	};
+}
+
+function gitCheckoutTool(): McpToolDefinition {
+	return {
+		name: 'git.checkout',
+		description: 'Check out an existing branch, tag, or commit. Pass {"createBranch": "feature/x"} to create + switch to a new branch from the current HEAD (or from "ref").',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				...repoArg,
+				treeish: { type: 'string', description: 'Branch/tag/commit to check out. Required unless createBranch is set.' },
+				createBranch: { type: 'string', description: 'Create a new branch with this name and switch to it.' },
+				ref: { type: 'string', description: 'Starting point for createBranch. Defaults to current HEAD.' },
+			},
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const api = await getGitApi();
+			const repo = pickRepository(api, typeof args.repository === 'string' ? args.repository : undefined);
+			if (typeof args.createBranch === 'string' && args.createBranch.length > 0) {
+				await repo.createBranch(args.createBranch, true, typeof args.ref === 'string' ? args.ref : undefined);
+				return { created: args.createBranch, head: repo.state.HEAD?.name };
+			}
+			if (typeof args.treeish !== 'string' || args.treeish.length === 0) {
+				throw new Error('Provide "treeish" or "createBranch".');
+			}
+			await repo.checkout(args.treeish);
+			return { checkedOut: args.treeish, head: repo.state.HEAD?.name };
+		},
+	};
+}
+
+function editorGetSelectionTool(): McpToolDefinition {
+	return {
+		name: 'editor.getSelection',
+		description: 'Return the active editor\'s current selection (text and range). If nothing is selected, returns the text of the current line.',
+		inputSchema: {
+			type: 'object',
+			properties: {},
+			additionalProperties: false,
+		},
+		handler: async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) { throw new Error('No active editor.'); }
+			const sel = editor.selection;
+			const doc = editor.document;
+			const isEmpty = sel.isEmpty;
+			const range = isEmpty ? doc.lineAt(sel.active.line).range : new vscode.Range(sel.start, sel.end);
+			return {
+				uri: doc.uri.toString(),
+				language: doc.languageId,
+				text: doc.getText(range),
+				startLine: range.start.line + 1,
+				startColumn: range.start.character + 1,
+				endLine: range.end.line + 1,
+				endColumn: range.end.character + 1,
+				isEmpty,
+			};
+		},
+	};
+}
+
+function editorInsertTextTool(): McpToolDefinition {
+	return {
+		name: 'editor.insertText',
+		description: 'Insert text at the active editor cursor, or replace the current selection. Edits go through the editor so undo/redo and dirty state behave normally.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				text: { type: 'string', description: 'Text to insert or replace with.' },
+				replaceSelection: { type: 'boolean', description: 'If a selection exists, replace it. Default true.' },
+				startLine: { type: 'number', description: '1-based start line for an explicit range replacement.' },
+				startColumn: { type: 'number', description: '1-based start column for an explicit range replacement.' },
+				endLine: { type: 'number', description: '1-based end line for an explicit range replacement.' },
+				endColumn: { type: 'number', description: '1-based end column for an explicit range replacement.' },
+			},
+			required: ['text'],
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) { throw new Error('No active editor.'); }
+			const text = String(args.text ?? '');
+			const replaceSelection = args.replaceSelection !== false;
+			const hasExplicit = ['startLine', 'startColumn', 'endLine', 'endColumn'].some(k => typeof args[k] === 'number');
+			let range: vscode.Range | undefined;
+			if (hasExplicit) {
+				const sL = Math.max(1, Math.floor(Number(args.startLine ?? 1))) - 1;
+				const sC = Math.max(1, Math.floor(Number(args.startColumn ?? 1))) - 1;
+				const eL = Math.max(sL + 1, Math.floor(Number(args.endLine ?? args.startLine ?? 1))) - 1;
+				const eC = Math.max(1, Math.floor(Number(args.endColumn ?? sC + 1))) - 1;
+				range = new vscode.Range(sL, sC, eL, eC);
+			}
+			const ok = await editor.edit(b => {
+				if (range) {
+					b.replace(range, text);
+				} else if (replaceSelection && !editor.selection.isEmpty) {
+					b.replace(editor.selection, text);
+				} else {
+					b.insert(editor.selection.active, text);
+				}
+			});
+			return { applied: ok, uri: editor.document.uri.toString() };
+		},
+	};
+}
+
+function workspaceListTool(): McpToolDefinition {
+	return {
+		name: 'workspace.list',
+		description: 'List the workspace folders currently open in this window.',
+		inputSchema: {
+			type: 'object',
+			properties: {},
+			additionalProperties: false,
+		},
+		handler: async () => {
+			const folders = vscode.workspace.workspaceFolders ?? [];
+			return {
+				name: vscode.workspace.name,
+				folders: folders.map(f => ({
+					name: f.name,
+					index: f.index,
+					uri: f.uri.toString(),
+					path: f.uri.fsPath,
+				})),
+			};
+		},
+	};
+}
+
+function workspaceFindFilesTool(): McpToolDefinition {
+	return {
+		name: 'workspace.findFiles',
+		description: 'Find workspace files by glob (e.g. "**/*.ts"). Honors files.exclude / search.exclude by default.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				include: { type: 'string', description: 'Glob pattern (relative to workspace).' },
+				exclude: { type: 'string', description: 'Optional exclude glob.' },
+				maxResults: { type: 'number', description: 'Default 200.' },
+			},
+			required: ['include'],
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const include = String(args.include ?? '');
+			if (!include) { throw new Error('"include" glob is required.'); }
+			const exclude = typeof args.exclude === 'string' ? args.exclude : undefined;
+			const maxResults = typeof args.maxResults === 'number' ? Math.max(1, Math.floor(args.maxResults)) : 200;
+			const results = await vscode.workspace.findFiles(include, exclude, maxResults);
+			return {
+				count: results.length,
+				files: results.map(u => ({ uri: u.toString(), path: u.fsPath })),
+			};
+		},
+	};
+}
+
+function fsReadFileTool(): McpToolDefinition {
+	return {
+		name: 'fs.readFile',
+		description: 'Read a UTF-8 text file. Path may be absolute, workspace-relative, or a fully-qualified URI.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Path or URI to read.' },
+				maxBytes: { type: 'number', description: 'Truncate after this many bytes. Default 1048576 (1 MiB).' },
+			},
+			required: ['path'],
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const uri = resolvePathUri(String(args.path ?? ''));
+			const maxBytes = typeof args.maxBytes === 'number' ? Math.max(1, Math.floor(args.maxBytes)) : 1024 * 1024;
+			const data = await vscode.workspace.fs.readFile(uri);
+			const truncated = data.byteLength > maxBytes;
+			const slice = truncated ? data.subarray(0, maxBytes) : data;
+			return {
+				uri: uri.toString(),
+				size: data.byteLength,
+				truncated,
+				content: Buffer.from(slice).toString('utf8'),
+			};
+		},
+	};
+}
+
+function fsWriteFileTool(): McpToolDefinition {
+	return {
+		name: 'fs.writeFile',
+		description: 'Write UTF-8 text to a file (creates parent directories as needed). Overwrites existing content; set createOnly to refuse when the file already exists.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Path or URI to write.' },
+				content: { type: 'string', description: 'UTF-8 text to write.' },
+				createOnly: { type: 'boolean', description: 'If true, fail when the file already exists. Default false.' },
+			},
+			required: ['path', 'content'],
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const uri = resolvePathUri(String(args.path ?? ''));
+			const content = String(args.content ?? '');
+			if (args.createOnly === true) {
+				try {
+					await vscode.workspace.fs.stat(uri);
+					throw new Error(`File already exists: ${uri.toString()}`);
+				} catch (err) {
+					if (err instanceof Error && err.message.startsWith('File already exists')) { throw err; }
+					// stat failed → file doesn't exist → fine, fall through to write
+				}
+			}
+			await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
+			return { written: uri.toString(), bytes: Buffer.byteLength(content, 'utf8') };
+		},
+	};
+}
+
+function diagnosticsGetTool(): McpToolDefinition {
+	return {
+		name: 'diagnostics.get',
+		description: 'Return current problems (errors, warnings, info) for a file, or the whole workspace if no path is given.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Optional file path/URI to scope to.' },
+				severity: { type: 'string', enum: ['error', 'warning', 'info', 'hint'], description: 'Minimum severity to include.' },
+			},
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const severityOrder: Record<string, number> = { error: 0, warning: 1, info: 2, hint: 3 };
+			const minSeverity = typeof args.severity === 'string' ? severityOrder[args.severity] ?? 3 : 3;
+			const severityName = (s: vscode.DiagnosticSeverity): string => ({
+				[vscode.DiagnosticSeverity.Error]: 'error',
+				[vscode.DiagnosticSeverity.Warning]: 'warning',
+				[vscode.DiagnosticSeverity.Information]: 'info',
+				[vscode.DiagnosticSeverity.Hint]: 'hint',
+			}[s] ?? 'info');
+			const formatDiag = (d: vscode.Diagnostic) => ({
+				severity: severityName(d.severity),
+				message: d.message,
+				source: d.source,
+				code: typeof d.code === 'object' && d.code ? d.code.value : d.code,
+				startLine: d.range.start.line + 1,
+				startColumn: d.range.start.character + 1,
+				endLine: d.range.end.line + 1,
+				endColumn: d.range.end.character + 1,
+			});
+			if (typeof args.path === 'string' && args.path.length > 0) {
+				const uri = resolvePathUri(args.path);
+				const diags = vscode.languages.getDiagnostics(uri)
+					.filter(d => d.severity <= minSeverity);
+				return { uri: uri.toString(), diagnostics: diags.map(formatDiag) };
+			}
+			const all = vscode.languages.getDiagnostics();
+			const files = all
+				.map(([uri, diags]) => ({
+					uri: uri.toString(),
+					path: uri.fsPath,
+					diagnostics: diags.filter(d => d.severity <= minSeverity).map(formatDiag),
+				}))
+				.filter(f => f.diagnostics.length > 0);
+			return { files };
+		},
+	};
+}
+
+function commandExecuteTool(): McpToolDefinition {
+	return {
+		name: 'command.execute',
+		description: 'Run any othcloud terminal command (e.g. "workbench.action.files.save", "editor.action.formatDocument"). Use vscode.commands.getCommands to discover IDs. Result is JSON-serialized when present.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				command: { type: 'string', description: 'Command id.' },
+				args: { type: 'array', items: {}, description: 'Optional positional arguments.' },
+			},
+			required: ['command'],
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const command = String(args.command ?? '');
+			if (!command) { throw new Error('A command id is required.'); }
+			const argv = Array.isArray(args.args) ? args.args as unknown[] : [];
+			const result = await vscode.commands.executeCommand(command, ...argv);
+			return { command, result };
+		},
+	};
+}
+
+function notificationShowTool(): McpToolDefinition {
+	return {
+		name: 'notification.show',
+		description: 'Show a toast notification to the user. Optional buttons return the label the user picked, or null if dismissed.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				message: { type: 'string', description: 'Notification text.' },
+				level: { type: 'string', enum: ['info', 'warning', 'error'], description: 'Default "info".' },
+				buttons: { type: 'array', items: { type: 'string' }, description: 'Up to 3 button labels. Returns the chosen label.' },
+				modal: { type: 'boolean', description: 'Show as a blocking modal dialog. Default false.' },
+			},
+			required: ['message'],
+			additionalProperties: false,
+		},
+		handler: async args => {
+			const message = String(args.message ?? '');
+			if (!message) { throw new Error('A message is required.'); }
+			const level = String(args.level ?? 'info');
+			const buttons = Array.isArray(args.buttons) ? (args.buttons as unknown[]).map(String).slice(0, 3) : [];
+			const opts: vscode.MessageOptions = { modal: args.modal === true };
+			let picked: string | undefined;
+			if (level === 'error') {
+				picked = await vscode.window.showErrorMessage(message, opts, ...buttons);
+			} else if (level === 'warning') {
+				picked = await vscode.window.showWarningMessage(message, opts, ...buttons);
+			} else {
+				picked = await vscode.window.showInformationMessage(message, opts, ...buttons);
+			}
+			return { shown: true, picked: picked ?? null };
+		},
+	};
 }

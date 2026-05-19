@@ -11,6 +11,7 @@ import { buildTools } from './tools';
 const EXT_NAME = 'othcloud-mcp';
 const EXT_VERSION = '1.0.0';
 const CONFIG_SECTION = 'othcloud.mcp';
+const STICKY_PORT_KEY = 'othcloud.mcp.stickyPort';
 
 interface ServerState {
 	running?: RunningServer;
@@ -40,23 +41,53 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			return;
 		}
 		const host = cfg.get<string>('host', '127.0.0.1') || '127.0.0.1';
-		const port = cfg.get<number>('port', 0) ?? 0;
+		const configuredPort = cfg.get<number>('port', 0) ?? 0;
 		const allowedOrigins = new Set<string>(cfg.get<string[]>('allowedOrigins', []) ?? []);
-		try {
-			state.running = await startServer({
-				host,
-				port,
-				token: state.token,
-				allowedOrigins,
-				tools: buildTools(),
-				serverName: EXT_NAME,
-				serverVersion: EXT_VERSION,
-				output,
-			});
+
+		// Sticky port: when no explicit port is configured (port = 0), reuse the
+		// port we picked last time so MCP client configs don't break across restarts.
+		const stickyPort = context.globalState.get<number>(STICKY_PORT_KEY);
+		const portsToTry: number[] = [];
+		if (configuredPort > 0) {
+			portsToTry.push(configuredPort);
+		} else {
+			if (typeof stickyPort === 'number' && stickyPort > 0 && stickyPort < 65536) {
+				portsToTry.push(stickyPort);
+			}
+			portsToTry.push(0);
+		}
+
+		let lastErr: Error | undefined;
+		for (const tryPort of portsToTry) {
+			try {
+				state.running = await startServer({
+					host,
+					port: tryPort,
+					token: state.token,
+					allowedOrigins,
+					tools: buildTools(),
+					serverName: EXT_NAME,
+					serverVersion: EXT_VERSION,
+					output,
+				});
+				lastErr = undefined;
+				break;
+			} catch (err) {
+				lastErr = err instanceof Error ? err : new Error(String(err));
+				output.appendLine(`[mcp] port ${tryPort} unavailable: ${lastErr.message}`);
+				state.running = undefined;
+			}
+		}
+
+		if (state.running) {
+			if (configuredPort === 0) {
+				// Remember the bound port for next time so the client config stays valid.
+				await context.globalState.update(STICKY_PORT_KEY, state.running.port);
+			}
 			statusBar.text = `$(plug) MCP :${state.running.port}`;
 			statusBar.tooltip = `OTHCloud MCP server listening on ${state.running.address}/sse`;
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
+		} else {
+			const msg = lastErr?.message ?? 'unknown error';
 			output.appendLine(`[mcp] failed to start: ${msg}`);
 			statusBar.text = '$(error) MCP';
 			statusBar.tooltip = `OTHCloud MCP server failed to start: ${msg}`;

@@ -1113,3 +1113,45 @@
 	font: inherit;
 	margin-bottom: 6px;
 }
+
+/* ---------- VS Code-styled scrollbars (replace the default Chrome ones
+   on every scrollable region of the Developers / Devs sidebar pages) ---------- */
+
+.othcloud-developers ::-webkit-scrollbar,
+.othcloud-dev-sidebar ::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+.othcloud-developers ::-webkit-scrollbar-track,
+.othcloud-dev-sidebar ::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.othcloud-developers ::-webkit-scrollbar-thumb,
+.othcloud-dev-sidebar ::-webkit-scrollbar-thumb {
+	background-color: var(--vscode-scrollbarSlider-background);
+	border-radius: 0;
+	min-height: 20px;
+}
+
+.othcloud-developers ::-webkit-scrollbar-thumb:hover,
+.othcloud-dev-sidebar ::-webkit-scrollbar-thumb:hover {
+	background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.othcloud-developers ::-webkit-scrollbar-thumb:active,
+.othcloud-dev-sidebar ::-webkit-scrollbar-thumb:active {
+	background-color: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+.othcloud-developers ::-webkit-scrollbar-corner,
+.othcloud-dev-sidebar ::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+.othcloud-developers,
+.othcloud-dev-sidebar {
+	scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+	scrollbar-width: thin;
+}

@@ -67,6 +67,29 @@ export interface CommitOptions {
 	postCommitCommand?: string | null;
 }
 
+export interface BranchQuery {
+	readonly remote?: boolean;
+	readonly pattern?: string;
+	readonly count?: number;
+	readonly contains?: string;
+}
+
+export interface Commit {
+	readonly hash: string;
+	readonly message: string;
+	readonly parents: string[];
+	readonly authorDate?: Date;
+	readonly authorName?: string;
+	readonly authorEmail?: string;
+	readonly commitDate?: Date;
+}
+
+export interface LogOptions {
+	readonly maxEntries?: number;
+	readonly path?: string;
+	readonly ref?: string;
+}
+
 export interface Repository {
 	readonly rootUri: Uri;
 	readonly inputBox: InputBox;
@@ -74,6 +97,12 @@ export interface Repository {
 	add(paths: string[]): Promise<void>;
 	revert(paths: string[]): Promise<void>;
 	commit(message: string, opts?: CommitOptions): Promise<void>;
+	diff(cached?: boolean): Promise<string>;
+	diffWithHEAD(path: string): Promise<string>;
+	getBranches(query: BranchQuery): Promise<Ref[]>;
+	log(options?: LogOptions): Promise<Commit[]>;
+	checkout(treeish: string): Promise<void>;
+	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 }
 
 export type APIState = 'uninitialized' | 'initialized';
