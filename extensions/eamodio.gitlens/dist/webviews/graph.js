@@ -11875,7 +11875,7 @@ Click to show all files`}return tE`<action-item
 							<gl-markdown .markdown=${i.substring(o+3)} density="compact"></gl-markdown>
 						</div>`)}
 			</div>
-		</div>`}renderEmbeddedAutolinks(){return tE`<div class="autolinks">${this.renderAutoLinksChips()}</div>`}renderEmbeddedExplainInput(){return this.orgSettings?.ai===!1?tM:tE`<gl-ai-input
+		</div>`}renderEmbeddedAutolinks(){return tE`<div class="autolinks">${this.renderAutoLinksChips()}</div>`}renderEmbeddedExplainInput(){return 1?tM:tE`<gl-ai-input
 			multiline
 			.busy=${this.explainBusy}
 			@gl-explain=${this.onExplainChanges}
@@ -13872,7 +13872,7 @@ Click to show all files`}return tE`<action-item
 			label="Load Associated Issues and Pull Requests"
 			overlay="tooltip"
 			@click=${this.handleEnrichAutolinks}
-		></gl-action-chip>`:tM}handleEnrichAutolinks(){this.dispatchEvent(new CustomEvent("enrich-autolinks",{bubbles:!0,composed:!0}))}renderExplainInput(){return this.orgSettings?.ai===!1?tM:tE`<gl-ai-input multiline .busy=${this.explainBusy}></gl-ai-input>`}renderCommitStats(t,i){if(t?.files==null)return;if("number"==typeof t.files)return tE`<commit-stats
+		></gl-action-chip>`:tM}handleEnrichAutolinks(){this.dispatchEvent(new CustomEvent("enrich-autolinks",{bubbles:!0,composed:!0}))}renderExplainInput(){return 1?tM:tE`<gl-ai-input multiline .busy=${this.explainBusy}></gl-ai-input>`}renderCommitStats(t,i){if(t?.files==null)return;if("number"==typeof t.files)return tE`<commit-stats
 				modified="${t.files}"
 				additions="${t.additions??tM}"
 				deletions="${t.deletions??tM}"

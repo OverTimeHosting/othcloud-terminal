@@ -18,3 +18,12 @@ gl-repo-button-group{min-width:0;max-width:fit-content;}
 .titlebar__row--wrap > .titlebar__group:nth-child(3){order:2;}
 :root{--font-family:var(--vscode-editor-font-family) !important;}
 body,html{font-family:var(--vscode-editor-font-family) !important;}
+
+/* othcloud: hide GitLens AI features */
+gl-ai-input, gl-ai-model-chip, gl-explain, gl-gk-ai,
+.gl-ai-input, .gl-explain, .gl-gk-ai,
+.gitlens-ai-markdown, .generate-ai, .switch-ai,
+.explain-commit, .copilot-unavailable,
+[data-ai-allowed], [data-section="ai"], .section--ai {
+	display: none !important;
+}

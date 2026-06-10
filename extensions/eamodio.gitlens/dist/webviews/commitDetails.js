@@ -6321,7 +6321,7 @@ Click to show all files`}return eC`<action-item
 							<gl-markdown .markdown=${t.substring(i+3)} density="compact"></gl-markdown>
 						</div>`)}
 			</div>
-		</div>`}renderEmbeddedAutolinks(){return eC`<div class="autolinks">${this.renderAutoLinksChips()}</div>`}renderEmbeddedExplainInput(){return this.orgSettings?.ai===!1?eA:eC`<gl-ai-input
+		</div>`}renderEmbeddedAutolinks(){return eC`<div class="autolinks">${this.renderAutoLinksChips()}</div>`}renderEmbeddedExplainInput(){return 1?eA:eC`<gl-ai-input
 			multiline
 			.busy=${this.explainBusy}
 			@gl-explain=${this.onExplainChanges}
