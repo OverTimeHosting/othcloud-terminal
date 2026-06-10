@@ -8,6 +8,9 @@ import { FileAccess } from '../../../base/common/network.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
+import { URI } from '../../../base/common/uri.js';
+import { IURLService } from '../../url/common/url.js';
+import { IProductService } from '../../product/common/productService.js';
 import { IBrowserViewBounds, IBrowserViewDevToolsStateEvent, IBrowserViewFocusEvent, IBrowserViewKeyDownEvent, IBrowserViewState, IBrowserViewNavigationEvent, IBrowserViewLoadingEvent, IBrowserViewLoadError, IBrowserViewTitleChangeEvent, IBrowserViewFaviconChangeEvent, IBrowserViewNewPageRequest, IBrowserViewCaptureScreenshotOptions, IBrowserViewFindInPageOptions, IBrowserViewFindInPageResult, IBrowserViewVisibilityEvent, BrowserNewPageLocation, browserViewIsolatedWorldId } from '../common/browserView.js';
 import { EVENT_KEY_CODE_MAP, KeyCode, KeyMod, SCAN_CODE_STR_TO_EVENT_KEY_CODE } from '../../../base/common/keyCodes.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
@@ -91,7 +94,9 @@ export class BrowserView extends Disposable implements ICDPTarget {
 		options: Electron.WebContentsViewConstructorOptions | undefined,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
-		@ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		@IURLService private readonly urlService: IURLService,
+		@IProductService private readonly productService: IProductService
 	) {
 		super();
 
@@ -292,6 +297,13 @@ export class BrowserView extends Disposable implements ICDPTarget {
 				return;
 			}
 			event.preventDefault();
+			// Our own deep-link protocol (e.g. othcloud-terminal://auth) must be handled in-process by
+			// the URL service. Going through shell.openExternal would have the OS relaunch the app and
+			// open a second main window instead of just signing in / routing within this instance.
+			if (scheme === this.productService.urlProtocol.toLowerCase()) {
+				this.urlService.open(URI.parse(url), { trusted: true }).catch(err => this.logService.error('[browserView] failed to handle protocol url', err));
+				return;
+			}
 			void shell.openExternal(url).catch(() => { /* nothing useful to do */ });
 		});
 

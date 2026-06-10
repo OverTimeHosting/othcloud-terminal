@@ -499,9 +499,12 @@ export class BrowserEditor extends EditorPane {
 		if (!this.overlayManager) {
 			return;
 		}
-		// Notifications don't pause the browser view; instead the WebContentsView is
-		// clipped around them in layoutBrowserContainer() so the toast stays visible
-		// over the placeholder screenshot while the rest of the page remains interactive.
+		// Modal / transient overlays (menus, dialogs, hovers, quick input, and the editor
+		// drag-to-split drop indicator) pause the view: the native WebContentsView is hidden behind a
+		// screenshot so the overlay renders cleanly on top. Notifications are different — they can be
+		// persistent (e.g. an MCP status toast), so pausing would freeze the whole page. Instead the
+		// view is only clipped above them in layoutBrowserContainer(), keeping the rest of the page
+		// interactive and resizable.
 		const allOverlays = this.overlayManager.getOverlappingOverlays(this._browserContainer);
 		this._notificationOverlays = allOverlays.filter(overlay => overlay.type === BrowserOverlayType.Notification);
 		const pausingOverlays = allOverlays.filter(overlay => overlay.type !== BrowserOverlayType.Notification);
