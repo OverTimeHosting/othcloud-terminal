@@ -74,15 +74,32 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 	) {
 		super();
 
-		authService.registerDeclaredAuthenticationProvider({
-			id: OTHCLOUD_GITHUB_PROVIDER_ID,
-			label: OTHCLOUD_GITHUB_PROVIDER_LABEL,
-		});
+		// `registerDeclaredAuthenticationProvider` throws if `github` is already
+		// declared (e.g. the half-disabled built-in github-authentication
+		// extension raced us to it). If that throw escaped, the constructor would
+		// abort *before* `registerAuthenticationProvider` and the provider would
+		// never actually register — leaving GitHub-using extensions (Copilot, the
+		// PR extension) to time out waiting for `github`. So guard the declaration
+		// and always register the provider itself.
+		let didDeclare = false;
+		if (!authService.declaredProviders.some(p => p.id === OTHCLOUD_GITHUB_PROVIDER_ID)) {
+			try {
+				authService.registerDeclaredAuthenticationProvider({
+					id: OTHCLOUD_GITHUB_PROVIDER_ID,
+					label: OTHCLOUD_GITHUB_PROVIDER_LABEL,
+				});
+				didDeclare = true;
+			} catch {
+				// Already declared by someone else — fine, we still register below.
+			}
+		}
 		authService.registerAuthenticationProvider(OTHCLOUD_GITHUB_PROVIDER_ID, this);
 		this._register({
 			dispose: () => {
 				authService.unregisterAuthenticationProvider(OTHCLOUD_GITHUB_PROVIDER_ID);
-				authService.unregisterDeclaredAuthenticationProvider(OTHCLOUD_GITHUB_PROVIDER_ID);
+				if (didDeclare) {
+					authService.unregisterDeclaredAuthenticationProvider(OTHCLOUD_GITHUB_PROVIDER_ID);
+				}
 			},
 		});
 
