@@ -106,8 +106,6 @@ registerAction2(class extends Action2 {
 
 export class AuxiliaryEditorPart {
 
-	private static STATUS_BAR_VISIBILITY = 'workbench.statusBar.visible';
-
 	constructor(
 		private readonly editorPartsView: IEditorPartsView,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -122,7 +120,6 @@ export class AuxiliaryEditorPart {
 	}
 
 	async create(label: string, options?: IAuxiliaryEditorPartOpenOptions): Promise<ICreateAuxiliaryEditorPartResult> {
-		const that = this;
 		const disposables = new DisposableStore();
 
 		let compact = Boolean(options?.compact);
@@ -180,7 +177,7 @@ export class AuxiliaryEditorPart {
 			editorPart.updateOptions({ compact });
 
 			const oldStatusbarVisible = statusbarVisible;
-			statusbarVisible = !compact && that.configurationService.getValue<boolean>(AuxiliaryEditorPart.STATUS_BAR_VISIBILITY) !== false;
+			statusbarVisible = false; // othcloud: never show the status bar on external/auxiliary windows
 			if (oldStatusbarVisible !== statusbarVisible) {
 				updateStatusbarVisibility(true);
 			}
@@ -235,16 +232,10 @@ export class AuxiliaryEditorPart {
 			disposables.add(scopedEditorPartInstantiationService.createInstance(WindowTitle, auxiliaryWindow.window));
 		}
 
-		// Statusbar
+		// Statusbar — othcloud hides the status bar on external/auxiliary windows entirely; only the
+		// main window shows it.
 		const statusbarPart = disposables.add(this.statusbarService.createAuxiliaryStatusbarPart(auxiliaryWindow.container, scopedEditorPartInstantiationService));
-		let statusbarVisible = !compact && this.configurationService.getValue<boolean>(AuxiliaryEditorPart.STATUS_BAR_VISIBILITY) !== false;
-		disposables.add(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(AuxiliaryEditorPart.STATUS_BAR_VISIBILITY)) {
-				statusbarVisible = !compact && this.configurationService.getValue<boolean>(AuxiliaryEditorPart.STATUS_BAR_VISIBILITY) !== false;
-
-				updateStatusbarVisibility(true);
-			}
-		}));
+		let statusbarVisible = false;
 
 		updateStatusbarVisibility(false);
 
