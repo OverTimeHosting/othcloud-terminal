@@ -55,6 +55,7 @@ export class DecorationAddon extends Disposable implements ITerminalAddon, IDeco
 	constructor(
 		private readonly _resource: URI | undefined,
 		private readonly _capabilities: ITerminalCapabilityStore,
+		private readonly _disableCommandDecorations: boolean = false,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -125,7 +126,9 @@ export class DecorationAddon extends Disposable implements ITerminalAddon, IDeco
 	}
 
 	private _updateDecorationVisibility(): void {
-		const showDecorations = this._configurationService.getValue(TerminalSettingId.ShellIntegrationDecorationsEnabled);
+		// Profiles that opt out (e.g. Claude Code) never show command decorations, regardless of
+		// the global `terminal.integrated.shellIntegration.decorationsEnabled` setting.
+		const showDecorations = this._disableCommandDecorations ? 'never' : this._configurationService.getValue(TerminalSettingId.ShellIntegrationDecorationsEnabled);
 		this._showGutterDecorations = (showDecorations === 'both' || showDecorations === 'gutter');
 		this._showOverviewRulerDecorations = (showDecorations === 'both' || showDecorations === 'overviewRuler');
 		this._disposeAllDecorations();

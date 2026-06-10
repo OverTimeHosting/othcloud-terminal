@@ -35,19 +35,24 @@ export class TerminalInputSerializer implements IEditorSerializer {
 	}
 
 	private _toJson(instance: ITerminalInstance): ISerializedTerminalEditorInput {
+		const slc = instance.shellLaunchConfig;
 		return {
 			id: instance.persistentProcessId!,
 			pid: instance.processId || 0,
 			title: instance.title,
 			titleSource: instance.titleSource,
-			cwd: '',
+			cwd: typeof slc.cwd === 'string' ? slc.cwd : slc.cwd?.toString() ?? '',
 			icon: instance.icon,
 			color: instance.color,
 			hasChildProcesses: instance.hasChildProcesses,
-			isFeatureTerminal: instance.shellLaunchConfig.isFeatureTerminal,
-			hideFromUser: instance.shellLaunchConfig.hideFromUser,
-			reconnectionProperties: instance.shellLaunchConfig.reconnectionProperties,
-			shellIntegrationNonce: instance.shellIntegrationNonce
+			isFeatureTerminal: slc.isFeatureTerminal,
+			hideFromUser: slc.hideFromUser,
+			reconnectionProperties: slc.reconnectionProperties,
+			shellIntegrationNonce: instance.shellIntegrationNonce,
+			// Remember the profile so it can be relaunched if the process is gone on restore.
+			executable: slc.executable,
+			args: slc.args,
+			profileName: slc.profileName
 		};
 	}
 }

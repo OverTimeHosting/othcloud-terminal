@@ -491,6 +491,15 @@ export interface IShellLaunchConfig {
 	name?: string;
 
 	/**
+	 * The name of the terminal profile this launch config was derived from, if any. Unlike
+	 * `name` this is always populated when a terminal is created from a profile (regardless of
+	 * the profile's `overrideName`), so the profile identity travels with the terminal and is
+	 * persisted/restored across reloads. Used to remember a tab's profile and to apply
+	 * profile-specific behavior (e.g. hiding command decorations for Claude Code profiles).
+	 */
+	profileName?: string;
+
+	/**
 	 * A string to follow the name of the terminal with, indicating the type of terminal
 	 */
 	type?: 'Task' | 'Local';

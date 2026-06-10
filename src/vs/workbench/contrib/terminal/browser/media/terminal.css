@@ -85,6 +85,22 @@
 	padding-left: 20px;
 }
 
+/* Decoration-free profiles (e.g. Claude Code) reclaim the gutter so content spans full width. */
+.monaco-workbench .xterm.xterm-no-command-decorations {
+	padding-left: 0;
+}
+/* Full-screen TUI profiles are top-aligned so the leftover grid remainder doesn't show as a gap
+   at the top of the terminal (the default bottom alignment pushes that empty space upward). */
+.monaco-workbench .terminal-editor .xterm.xterm-no-command-decorations,
+.monaco-workbench .pane-body.integrated-terminal .xterm.xterm-no-command-decorations {
+	top: 0;
+	bottom: auto;
+}
+.monaco-workbench .xterm.xterm-no-command-decorations .xterm-scrollable-element {
+	margin-left: 0;
+	padding-left: 0;
+}
+
 .monaco-workbench .terminal-editor .xterm,
 .monaco-workbench .pane-body.integrated-terminal .xterm {
 	/* Bottom align the terminal within the split pane */
@@ -164,6 +180,12 @@
 .monaco-workbench .pane-body.integrated-terminal .terminal-wrapper:not(.fixed-dims) .xterm-viewport {
 	/* Override xterm.js' position so the area that accepts mouse events extends to the edge of the scroll bar */
 	right: 14px;
+}
+
+/* Decoration-free profiles (e.g. Claude Code) have no scrollbar, so let the viewport reach the
+   right edge instead of reserving the 14px scrollbar track. */
+.monaco-workbench .xterm.xterm-no-command-decorations .xterm-viewport {
+	right: 0 !important;
 }
 
 .monaco-workbench .pane-body.integrated-terminal .split-view-view {

@@ -90,6 +90,12 @@ export interface IXtermTerminalOptions {
 	xtermAddonImporter?: XtermAddonImporter;
 	/** Whether to disable the overview ruler. */
 	disableOverviewRuler?: boolean;
+	/**
+	 * Whether to suppress shell-integration command decorations (the gutter/overview "dot"
+	 * shown next to each run command) for this terminal regardless of the global setting.
+	 * Used for full-screen TUI profiles such as Claude Code where the dots are just noise.
+	 */
+	disableCommandDecorations?: boolean;
 }
 
 /**
@@ -103,6 +109,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	private readonly _xtermAddonLoader: XtermAddonImporter;
 	private readonly _xtermColorProvider: IXtermColorProvider;
 	private readonly _capabilities: ITerminalCapabilityStore;
+	private readonly _disableCommandDecorations: boolean;
 
 	private static _suggestedRendererType: 'dom' | undefined = undefined;
 	private _attached?: { container: HTMLElement; options: IXtermAttachToElementOptions };
@@ -208,6 +215,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		this._xtermAddonLoader = options.xtermAddonImporter ?? new XtermAddonImporter();
 		this._xtermColorProvider = options.xtermColorProvider;
 		this._capabilities = options.capabilities;
+		this._disableCommandDecorations = options.disableCommandDecorations ?? false;
 
 		const font = this._terminalConfigurationService.getFont(dom.getActiveWindow(), undefined, true);
 		const config = this._terminalConfigurationService.config;
@@ -299,7 +307,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		this._updateUnicodeVersion();
 		this._markNavigationAddon = this._instantiationService.createInstance(MarkNavigationAddon, options.capabilities);
 		this.raw.loadAddon(this._markNavigationAddon);
-		this._decorationAddon = this._instantiationService.createInstance(DecorationAddon, resource, this._capabilities);
+		this._decorationAddon = this._instantiationService.createInstance(DecorationAddon, resource, this._capabilities, options.disableCommandDecorations ?? false);
 		this._register(this._decorationAddon.onDidRequestRunCommand(e => this._onDidRequestRunCommand.fire(e)));
 		this._register(this._decorationAddon.onDidRequestCopyAsHtml(e => this._onDidRequestCopyAsHtml.fire(e)));
 		this.raw.loadAddon(this._decorationAddon);
@@ -486,6 +494,12 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 
 		if (!this.raw.element || !this.raw.textarea) {
 			throw new Error('xterm elements not set after open');
+		}
+
+		// Profiles with command decorations disabled (e.g. Claude Code) don't need the reserved
+		// gutter — reclaim the left padding so the full-screen TUI isn't inset on the left.
+		if (this._disableCommandDecorations) {
+			this.raw.element.classList.add('xterm-no-command-decorations');
 		}
 
 		const ad = this._attachedDisposables;

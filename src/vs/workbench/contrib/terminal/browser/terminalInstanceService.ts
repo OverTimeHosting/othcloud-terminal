@@ -67,6 +67,9 @@ export class TerminalInstanceService extends Disposable implements ITerminalInst
 				icon: profile.icon,
 				color: profile.color,
 				name: profile.overrideName ? profile.profileName : undefined,
+				// Always remember which profile this terminal came from so the identity
+				// survives reload/relaunch and profile-specific behavior can be applied.
+				profileName: profile.profileName,
 				cwd
 			};
 		}

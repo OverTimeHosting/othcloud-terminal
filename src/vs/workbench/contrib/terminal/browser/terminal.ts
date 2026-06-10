@@ -646,6 +646,11 @@ interface ITerminalEditorInputObject {
 	readonly hideFromUser?: boolean;
 	readonly reconnectionProperties?: IReconnectionProperties;
 	readonly shellIntegrationNonce: string;
+	// Profile launch info so a restored editor terminal whose process has exited can be relaunched
+	// as the same profile (e.g. Claude Code) instead of falling back to the default shell.
+	readonly executable?: string;
+	readonly args?: string | string[];
+	readonly profileName?: string;
 }
 
 export interface ISerializedTerminalEditorInput extends ITerminalEditorInputObject {

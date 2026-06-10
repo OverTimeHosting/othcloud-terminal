@@ -175,6 +175,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _injectedArgs: string[] | undefined = undefined;
 	private _layoutSettingsChanged: boolean = true;
 	private _dimensionsOverride: ITerminalDimensionsOverride | undefined;
+	/**
+	 * True for full-screen TUI profiles (e.g. Claude Code) that hide command decorations and the
+	 * scrollbar — used to also drop the reserved scrollbar width so they span the full terminal width.
+	 */
+	private _suppressTerminalChrome: boolean = false;
 	private _areLinksReady: boolean = false;
 	private readonly _initialDataEventsListener: MutableDisposable<IDisposable> = this._register(new MutableDisposable());
 	private _initialDataEvents: string[] | undefined = [];
@@ -756,7 +761,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			return undefined;
 		}
 		const computedStyle = dom.getWindow(this.xterm.raw.element).getComputedStyle(this.xterm.raw.element);
-		const horizontalPadding = parseInt(computedStyle.paddingLeft) + parseInt(computedStyle.paddingRight) + 14/*scroll bar padding*/;
+		// Chromeless profiles (e.g. Claude Code) have no scrollbar, so don't reserve its width.
+		const scrollBarPadding = this._suppressTerminalChrome ? 0 : 14;
+		const horizontalPadding = parseInt(computedStyle.paddingLeft) + parseInt(computedStyle.paddingRight) + scrollBarPadding;
 		const verticalPadding = parseInt(computedStyle.paddingTop) + parseInt(computedStyle.paddingBottom);
 		TerminalInstance._lastKnownCanvasDimensions = new dom.Dimension(
 			Math.min(Constants.MaxCanvasWidth, width - horizontalPadding),
@@ -792,6 +799,16 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		}
 
 		const disableShellIntegrationReporting = (this.shellLaunchConfig.executable === undefined || this.shellType === undefined) || !shellIntegrationSupportedShellTypes.includes(this.shellType);
+		// Claude Code profiles are full-screen TUIs, so the per-command gutter "dot" decorations and
+		// scrollbar are just noise — suppress them for any profile whose name contains "claude". The
+		// restored title is included so revived terminals (whose profileName isn't preserved across
+		// relaunch) are still recognized.
+		const profileSignal = this.shellLaunchConfig.profileName
+			?? this.shellLaunchConfig.name
+			?? this.shellLaunchConfig.attachPersistentProcess?.title
+			?? '';
+		const disableCommandDecorations = /claude/i.test(profileSignal);
+		this._suppressTerminalChrome = disableCommandDecorations;
 		const xterm = this._scopedInstantiationService.createInstance(XtermTerminal, this._resource, Terminal, {
 			cols: this._cols,
 			rows: this._rows,
@@ -799,6 +816,10 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			capabilities: this.capabilities,
 			shellIntegrationNonce: this._processManager.shellIntegrationNonce,
 			disableShellIntegrationReporting,
+			disableCommandDecorations,
+			// Claude Code profiles don't use the overview-ruler scrollbar decorations, so drop the
+			// reserved space on the right too — together with the gutter this gives a full-width TUI.
+			disableOverviewRuler: disableCommandDecorations,
 		}, this.onDidExecuteText);
 		this.xterm = xterm;
 		this._resizeDebouncer = this._register(new TerminalResizeDebouncer(
