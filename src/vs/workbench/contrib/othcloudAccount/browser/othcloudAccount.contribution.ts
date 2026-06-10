@@ -51,28 +51,28 @@ registerWorkbenchContribution2(
 );
 
 /**
- * Pins `workbench.activityBar.location` to `top` on workbench start. The
- * default is already `top` (`workbench.contribution.ts:616`); this catches
- * the case where the user previously changed it and wants the Othcloud look
- * back without rummaging in settings.
+ * Pins `workbench.activityBar.location` to `hidden` on workbench start. The activity bar's view
+ * containers are rendered in the window title bar instead (see the `titleBarActivityBar`
+ * contribution), so the native bar at the side-bar top is hidden to avoid showing both. This also
+ * catches the case where the user previously changed the setting and wants the Othcloud look back.
  */
-class ForceActivityBarTopContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.othcloudForceActivityBarTop';
+class ForceActivityBarHiddenContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.othcloudForceActivityBarHidden';
 
 	constructor(
 		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super();
 		const current = configurationService.getValue('workbench.activityBar.location');
-		if (current !== 'top') {
-			void configurationService.updateValue('workbench.activityBar.location', 'top', ConfigurationTarget.USER);
+		if (current !== 'hidden') {
+			void configurationService.updateValue('workbench.activityBar.location', 'hidden', ConfigurationTarget.USER);
 		}
 	}
 }
 
 registerWorkbenchContribution2(
-	ForceActivityBarTopContribution.ID,
-	ForceActivityBarTopContribution,
+	ForceActivityBarHiddenContribution.ID,
+	ForceActivityBarHiddenContribution,
 	WorkbenchPhase.AfterRestored,
 );
 

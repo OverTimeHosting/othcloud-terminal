@@ -1,0 +1,47 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.titlebar-activity-bar {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	margin: 0 4px;
+	/* Sit just right of the app icon (order: 1). */
+	order: 2;
+	/* The title bar is a drag region (position:absolute, z-index auto); a small positive z-index is
+	   enough to lift the items above it so they stay clickable. We deliberately do NOT use the high
+	   2500 used elsewhere, because that lifts the bar into the dropdown/menu layer and makes it paint
+	   on top of open menus. */
+	position: relative;
+	z-index: 1;
+	-webkit-app-region: no-drag;
+}
+
+/* Match the style of the action items on the right of the title bar (accounts / manage):
+   flat, full-height, no rounded corners, icon in the foreground color, rectangular hover. */
+.titlebar-activity-bar .titlebar-activity-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 100%;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+.titlebar-activity-bar .titlebar-activity-item:hover,
+.titlebar-activity-bar .titlebar-activity-item.active {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.titlebar-activity-bar .titlebar-activity-item.image-icon {
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: 16px;
+}

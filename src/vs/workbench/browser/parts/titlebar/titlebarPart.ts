@@ -357,14 +357,12 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 	protected onConfigurationChanged(event: IConfigurationChangeEvent): void {
 
-		// Custom menu bar (disabled if auxiliary)
+		// Custom menu bar (disabled if auxiliary). The menu bar (including the compact hamburger) is
+		// installed in the title bar for all visibilities, since othcloud hides the activity bar
+		// (which would otherwise host the compact menu).
 		if (!this.isAuxiliary && !hasNativeMenu(this.configurationService, this.titleBarStyle) && (!isMacintosh || isWeb)) {
 			if (event.affectsConfiguration(MenuSettings.MenuBarVisibility)) {
-				if (this.currentMenubarVisibility === 'compact') {
-					this.uninstallMenubar();
-				} else {
-					this.installMenubar();
-				}
+				this.installMenubar();
 			}
 		}
 
@@ -419,15 +417,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		this.customMenubar.value.create(this.menubar);
 	}
 
-	private uninstallMenubar(): void {
-		this.customMenubar.value = undefined;
-
-		this.menubar?.remove();
-		this.menubar = undefined;
-
-		this.onMenubarVisibilityChanged(false);
-	}
-
 	protected onMenubarVisibilityChanged(visible: boolean): void {
 		if (isWeb || isWindows || isLinux) {
 			if (this.lastLayoutDimensions) {
@@ -462,12 +451,12 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		// Draggable region that we can manipulate for #52522
 		this.dragRegion = prepend(this.rootContainer, $('div.titlebar-drag-region'));
 
-		// Menubar: install a custom menu bar depending on configuration
+		// Menubar: install a custom menu bar depending on configuration. The compact hamburger is
+		// kept in the title bar (othcloud hides the activity bar that would otherwise host it).
 		if (
 			!this.isAuxiliary &&
 			!hasNativeMenu(this.configurationService, this.titleBarStyle) &&
-			(!isMacintosh || isWeb) &&
-			this.currentMenubarVisibility !== 'compact'
+			(!isMacintosh || isWeb)
 		) {
 			this.installMenubar();
 		}
@@ -821,7 +810,10 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 	private get activityActionsEnabled(): boolean {
 		const activityBarPosition = this.configurationService.getValue<ActivityBarPosition>(LayoutSettings.ACTIVITY_BAR_LOCATION);
-		return !this.isCompact && !this.isAuxiliary && (activityBarPosition === ActivityBarPosition.TOP || activityBarPosition === ActivityBarPosition.BOTTOM);
+		// HIDDEN is included because othcloud renders the activity bar's view containers in the title
+		// bar (see the titleBarActivityBar contribution); the global actions (accounts/manage) should
+		// stay alongside them rather than disappear with the native activity bar.
+		return !this.isCompact && !this.isAuxiliary && (activityBarPosition === ActivityBarPosition.TOP || activityBarPosition === ActivityBarPosition.BOTTOM || activityBarPosition === ActivityBarPosition.HIDDEN);
 	}
 
 	private get globalActionsEnabled(): boolean {
