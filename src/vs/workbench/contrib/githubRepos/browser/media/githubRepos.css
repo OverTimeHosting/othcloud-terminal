@@ -1,0 +1,56 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.github-repos-view .github-repos-account {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 12px;
+	font-size: 11px;
+	opacity: 0.85;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.github-repos-view .github-repos-account .github-repos-account-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.github-repos-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 22px;
+	padding: 0 12px;
+	cursor: pointer;
+	box-sizing: border-box;
+}
+
+.github-repos-row .github-repos-name {
+	flex: 1 1 auto;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.github-repos-row .github-repos-icon,
+.github-repos-row .github-repos-remove {
+	flex: 0 0 auto;
+}
+
+.github-repos-row .github-repos-remove {
+	opacity: 0;
+}
+
+.monaco-list-row:hover .github-repos-row .github-repos-remove,
+.monaco-list-row.focused .github-repos-row .github-repos-remove {
+	opacity: 0.7;
+}
+
+.github-repos-row .github-repos-remove:hover {
+	opacity: 1;
+}
