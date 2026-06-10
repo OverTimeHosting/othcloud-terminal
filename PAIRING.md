@@ -123,6 +123,24 @@ include token metadata (name="Othcloud Terminal", createdAt, lastUsedAt).
 - Validates the token. On `401`, the desktop signs the user out and re-prompts.
 - Used on app start to confirm the cached token is still good.
 
+### GitHub repository creation (desktop-side, no new endpoint)
+
+The **GitHub Repos** sidebar can create repositories directly. It does **not**
+need a dedicated othcloud.xyz endpoint: the `githubRepos.createOnGithub` action
+reuses the `github` auth session (the GitHub App installation token proxied by
+`/api/desktop/github-token`) and calls the GitHub REST API itself:
+
+- `GET https://api.github.com/installation/repositories` → resolve and display
+  which account/org the link belongs to (e.g. `OverTimeHosting` vs a personal
+  account).
+- `POST https://api.github.com/orgs/{org}/repos` (org installs) to create the
+  repo, then clones it locally (credentials flow through the `github` provider)
+  and adds it to the sidebar list.
+
+Because an installation token can only create repos under an **organization**
+(not a personal user account), the action surfaces the resolved owner so the
+user knows where the repo will land.
+
 ## Deep-link format
 
 The desktop registers a system-level handler for the `othcloud-terminal://`
