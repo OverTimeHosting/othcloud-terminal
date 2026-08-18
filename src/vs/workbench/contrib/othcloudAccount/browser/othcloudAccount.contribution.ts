@@ -41,13 +41,18 @@ registerWorkbenchContribution2(
 	WorkbenchPhase.AfterRestored,
 );
 
-// Reverted to `AfterRestored` while we debug a blank-workbench issue with
-// earlier phases. PR extension may briefly time out on `github` auth provider
-// — re-tackle the phase change after isolating what's breaking startup.
+// Must be `BlockRestore`: this provider owns the canonical `github` id, and
+// consumers (GitLens, the PR extension, the accounts menu) call `getSessions`
+// during startup. `AuthenticationService.tryActivateProvider` then waits on
+// `onDidRegisterAuthenticationProvider` and throws "Timed out waiting for
+// authentication provider 'github' to register" after 30s - which is exactly
+// what `AfterRestored` produced, since nothing declares `github` via an
+// extension any more. Registering is cheap and synchronous (no network: the
+// token is fetched lazily in `getSessions`), so it is safe this early.
 registerWorkbenchContribution2(
 	OthcloudGithubAuthProvider.ID,
 	OthcloudGithubAuthProvider,
-	WorkbenchPhase.AfterRestored,
+	WorkbenchPhase.BlockRestore,
 );
 
 /**

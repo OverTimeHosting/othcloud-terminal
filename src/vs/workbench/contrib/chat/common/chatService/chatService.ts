@@ -9,7 +9,7 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { IMarkdownString } from '../../../../../base/common/htmlContent.js';
 import { DisposableStore, IReference } from '../../../../../base/common/lifecycle.js';
-import { autorun, autorunSelfDisposable, IObservable, IReader } from '../../../../../base/common/observable.js';
+import { autorun, IObservable, IReader } from '../../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { hasKey } from '../../../../../base/common/types.js';
 import { URI, UriComponents } from '../../../../../base/common/uri.js';
@@ -19,7 +19,6 @@ import { ISelection } from '../../../../../editor/common/core/selection.js';
 import { Command, Location, TextEdit } from '../../../../../editor/common/languages.js';
 import { FileType } from '../../../../../platform/files/common/files.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IAutostartResult } from '../../../mcp/common/mcpTypes.js';
 import { ICellEditOperation } from '../../../notebook/common/notebookCommon.js';
 import { IWorkspaceSymbol } from '../../../search/common/search.js';
 import { IChatAgentCommand, IChatAgentData, IChatAgentResult, UserSelectedTools } from '../participants/chatAgents.js';
@@ -526,15 +525,6 @@ export interface IChatToolInputInvocationData {
 	kind: 'input';
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	rawInput: any;
-	/** Optional MCP App UI metadata for rendering during and after tool execution */
-	mcpAppData?: {
-		/** URI of the UI resource for rendering (e.g., "ui://weather-server/dashboard") */
-		resourceUri: string;
-		/** Reference to the server definition for reconnection */
-		serverDefinitionId: string;
-		/** Reference to the collection containing the server */
-		collectionId: string;
-	};
 }
 
 export const enum ToolConfirmKind {
@@ -896,50 +886,8 @@ export interface IChatToolResourcesInvocationData {
 	readonly values: Array<URI | Location>;
 }
 
-export interface IChatMcpServersStarting {
-	readonly kind: 'mcpServersStarting';
-	readonly state?: IObservable<IAutostartResult>; // not hydrated when serialized
-	didStartServerIds?: string[];
-	toJSON(): IChatMcpServersStartingSerialized;
-}
-
-export interface IChatMcpServersStartingSerialized {
-	readonly kind: 'mcpServersStarting';
-	readonly state?: undefined;
-	didStartServerIds?: string[];
-}
-
 export interface IChatDisabledClaudeHooksPart {
 	readonly kind: 'disabledClaudeHooks';
-}
-
-export class ChatMcpServersStarting implements IChatMcpServersStarting {
-	public readonly kind = 'mcpServersStarting';
-
-	public didStartServerIds?: string[] = [];
-
-	public get isEmpty() {
-		const s = this.state.get();
-		return !s.working && s.serversRequiringInteraction.length === 0;
-	}
-
-	constructor(public readonly state: IObservable<IAutostartResult>) { }
-
-	wait() {
-		return new Promise<IAutostartResult>(resolve => {
-			autorunSelfDisposable(reader => {
-				const s = this.state.read(reader);
-				if (!s.working) {
-					reader.dispose();
-					resolve(s);
-				}
-			});
-		});
-	}
-
-	toJSON(): IChatMcpServersStartingSerialized {
-		return { kind: 'mcpServersStarting', didStartServerIds: this.didStartServerIds };
-	}
 }
 
 export type IChatProgress =
@@ -974,8 +922,6 @@ export type IChatProgress =
 	| IChatTaskSerialized
 	| IChatElicitationRequest
 	| IChatElicitationRequestSerialized
-	| IChatMcpServersStarting
-	| IChatMcpServersStartingSerialized
 	| IChatHookPart
 	| IChatExternalToolInvocationUpdate
 	| IChatDisabledClaudeHooksPart;

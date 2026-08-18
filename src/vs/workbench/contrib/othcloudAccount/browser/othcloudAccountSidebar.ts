@@ -29,7 +29,7 @@ import {
 	ViewContainer,
 	ViewContainerLocation,
 } from '../../../common/views.js';
-import { IOthcloudAccountService, IOthcloudUser } from '../common/othcloudAccountService.js';
+import { getOthcloudRoleLabel, IOthcloudAccountService, IOthcloudUser } from '../common/othcloudAccountService.js';
 import { IOthcloudServiceRow, IOthcloudServices, OTHCLOUD_BASE_URL, OthcloudAccountApiError, OthcloudAccountClient } from './othcloudAccountClient.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -52,6 +52,17 @@ interface SectionDef {
 	readonly label: string;
 	readonly icon: ThemeIcon;
 	readonly emptyLabel: string;
+}
+
+/**
+ * The desktop API resolves avatars against the site origin, which mangles an
+ * inline avatar into `https://host/data:image/...` - a path that can never
+ * load, leaving the user with the fallback glyph. Recover the embedded URI so
+ * the avatar still renders against servers that have not been fixed yet.
+ */
+function normalizeAvatarUrl(raw: string): string {
+	const dataIndex = raw.indexOf('data:');
+	return dataIndex > 0 ? raw.slice(dataIndex) : raw;
 }
 
 class OthcloudAccountSidebarView extends ViewPane {
@@ -122,6 +133,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 
 	private renderSignedOut(parent: HTMLElement): void {
 		const card = append(parent, $('.othcloud-account-card.signed-out'));
+		// allow-any-unicode-next-line
 		append(card, $('.othcloud-account-icon', {}, '☁'));
 		append(card, $('.othcloud-account-title', {}, localize('othcloud.account.signInTitle', 'Sign in to OTHCloud')));
 		append(card, $('.othcloud-account-subtitle', {},
@@ -137,8 +149,19 @@ class OthcloudAccountSidebarView extends ViewPane {
 		const header = append(parent, $('.othcloud-account-header'));
 		this.renderAvatar(header, user);
 		const nameWrap = append(header, $('.othcloud-account-name-wrap'));
-		append(nameWrap, $('.othcloud-account-name', {}, user.name || user.email));
-		append(nameWrap, $('.othcloud-account-email', {}, user.email));
+		const nameRow = append(nameWrap, $('.othcloud-account-name-row'));
+		append(nameRow, $('.othcloud-account-name', {}, user.name || user.email));
+
+		// Surface the role the API already returns (owner/admin/developer/…) so it
+		// is obvious which permissions this terminal is acting with.
+		const roleLabel = getOthcloudRoleLabel(user);
+		if (roleLabel) {
+			const badge = append(nameRow, $('.othcloud-account-role', {}, roleLabel));
+			badge.title = localize('othcloud.account.roleTooltip', 'Your role on OTHCloud: {0}', roleLabel);
+		}
+
+		const email = append(nameWrap, $('.othcloud-account-email', {}, user.email));
+		email.title = user.email;
 
 		const consoleBtn = append(header, $('button.othcloud-account-iconbtn')) as HTMLButtonElement;
 		append(consoleBtn, $('span' + ThemeIcon.asCSSSelector(Codicon.window)));
@@ -172,7 +195,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 	 *
 	 * The workbench CSP only permits `https:` / `data:` / `blob:` for `img-src`,
 	 * which blocks `http://localhost:3001` avatars in dev. We work around that
-	 * by fetching the avatar bytes and showing it as a `blob:` URL — which
+	 * by fetching the avatar bytes and showing it as a `blob:` URL - which
 	 * also future-proofs us against private/authed avatar endpoints.
 	 */
 	private renderAvatar(parent: HTMLElement, user: IOthcloudUser): void {
@@ -193,9 +216,17 @@ class OthcloudAccountSidebarView extends ViewPane {
 		};
 		parent.insertBefore(img, parent.firstChild);
 
+		const sourceUrl = normalizeAvatarUrl(user.avatarUrl);
+
+		// Inline images need no network round trip, and `data:` is already
+		// permitted by the workbench CSP.
+		if (sourceUrl.startsWith('data:')) {
+			img.src = sourceUrl;
+			return;
+		}
+
 		// HTTPS images (prod) are allowed directly by the CSP; HTTP (dev
 		// localhost) is not, so we always proxy through a blob URL.
-		const sourceUrl = user.avatarUrl;
 		if (this.avatarBlobCache?.source === sourceUrl) {
 			img.src = this.avatarBlobCache.blobUrl;
 			return;
@@ -272,9 +303,12 @@ class OthcloudAccountSidebarView extends ViewPane {
 		}
 		el.title = hasChildren
 			? (expanded
+				// allow-any-unicode-next-line
 				? localize('othcloud.account.collapseRow', '{0}  —  collapse', row.name)
+				// allow-any-unicode-next-line
 				: localize('othcloud.account.expandRow', '{0}  —  expand', row.name))
 			: hasUrl
+				// allow-any-unicode-next-line
 				? localize('othcloud.account.openInBrowserTip', '{0}  —  open in browser', row.name)
 				: row.name;
 
@@ -315,7 +349,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 	}
 
 	/**
-	 * Opens an othcloud.xyz path as a new in-editor tab — without the
+	 * Opens an othcloud.xyz path as a new in-editor tab - without the
 	 * BrowserView's URL bar / quick-links toolbar (`chrome=hidden` query
 	 * flag, stripped in `BrowserEditor.setInput`). Each click adds another
 	 * tab; the group locks so subsequent navigations don't pollute the user's
@@ -368,7 +402,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 			if (seq !== this.fetchSeq) {
 				return;
 			}
-			// 401: the stored token is no longer valid — sign out so the CTA
+			// 401: the stored token is no longer valid - sign out so the CTA
 			// shows up again and the user re-pairs. We swallow the error here
 			// since signOut() will trigger a re-render of the signed-out card.
 			if (err instanceof OthcloudAccountApiError && err.status === 401) {
@@ -394,7 +428,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 
 /**
  * Registers the activity-bar entry (cloud icon) and the single view inside it.
- * The container shows up as soon as this module is imported — sign-in state is
+ * The container shows up as soon as this module is imported - sign-in state is
  * read live in {@link OthcloudAccountSidebarView}.
  */
 export function registerOthcloudAccountSidebar(): void {

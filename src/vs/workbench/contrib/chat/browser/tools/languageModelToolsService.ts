@@ -1483,9 +1483,6 @@ function getToolFullReferenceName(tool: IToolData, toolSet?: IToolSet) {
 }
 
 function getToolSetFullReferenceName(toolSet: IToolSet) {
-	if (toolSet.source.type === 'mcp') {
-		return `${toolSet.referenceName}/*`;
-	}
 	return toolSet.referenceName;
 }
 

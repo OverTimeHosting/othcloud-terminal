@@ -31,11 +31,11 @@ import minimist from 'minimist';
 import { compileBuildWithoutManglingTask, compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask } from './gulpfile.extensions.ts';
 import { copyCodiconsTask } from './lib/compilation.ts';
+import { runEsbuildBundle, runEsbuildTranspile, runTsGoTypeCheck } from './lib/esbuildRunner.ts';
 import { useEsbuildTranspile } from './buildConfig.ts';
 import { promisify } from 'util';
 import globCallback from 'glob';
 import rceditCallback from 'rcedit';
-import * as cp from 'child_process';
 
 
 const glob = promisify(globCallback);
@@ -154,81 +154,6 @@ const bundleVSCodeTask = task.define('bundle-vscode', task.series(
 	)
 ));
 gulp.task(bundleVSCodeTask);
-
-// esbuild-based bundle tasks (drop-in replacement for bundle-vscode / minify-vscode)
-function runEsbuildTranspile(outDir: string, excludeTests: boolean): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const scriptPath = path.join(root, 'build/next/index.ts');
-		const args = [scriptPath, 'transpile', '--out', outDir];
-		if (excludeTests) {
-			args.push('--exclude-tests');
-		}
-
-		const proc = cp.spawn(process.execPath, args, {
-			cwd: root,
-			stdio: 'inherit'
-		});
-
-		proc.on('error', reject);
-		proc.on('close', code => {
-			if (code === 0) {
-				resolve();
-			} else {
-				reject(new Error(`esbuild transpile failed with exit code ${code} (outDir: ${outDir})`));
-			}
-		});
-	});
-}
-
-function runEsbuildBundle(outDir: string, minify: boolean, nls: boolean, target: 'desktop' | 'server' | 'server-web' = 'desktop', sourceMapBaseUrl?: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		// const tsxPath = path.join(root, 'build/node_modules/tsx/dist/cli.mjs');
-		const scriptPath = path.join(root, 'build/next/index.ts');
-		const args = [scriptPath, 'bundle', '--out', outDir, '--target', target];
-		if (minify) {
-			args.push('--minify');
-		}
-		if (nls) {
-			args.push('--nls');
-		}
-		if (sourceMapBaseUrl) {
-			args.push('--source-map-base-url', sourceMapBaseUrl);
-		}
-
-		const proc = cp.spawn(process.execPath, args, {
-			cwd: root,
-			stdio: 'inherit'
-		});
-
-		proc.on('error', reject);
-		proc.on('close', code => {
-			if (code === 0) {
-				resolve();
-			} else {
-				reject(new Error(`esbuild bundle failed with exit code ${code} (outDir: ${outDir}, minify: ${minify}, nls: ${nls}, target: ${target})`));
-			}
-		});
-	});
-}
-
-function runTsGoTypeCheck(): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const proc = cp.spawn('tsgo', ['--project', 'src/tsconfig.json', '--noEmit', '--skipLibCheck'], {
-			cwd: root,
-			stdio: 'inherit',
-			shell: true
-		});
-
-		proc.on('error', reject);
-		proc.on('close', code => {
-			if (code === 0) {
-				resolve();
-			} else {
-				reject(new Error(`tsgo typecheck failed with exit code ${code}`));
-			}
-		});
-	});
-}
 
 const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
 const minifyVSCodeTask = task.define('minify-vscode', task.series(
@@ -528,7 +453,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));
 
 			// Skip the AppX manifest entirely when product.json doesn't define
-			// win32ContextMenu — that's a Microsoft-internal field for the
+			// win32ContextMenu - that's a Microsoft-internal field for the
 			// Windows Explorer context-menu DLL that forks don't ship.
 			const ctxMenu = (product as { win32ContextMenu?: Record<string, { clsid: string }> }).win32ContextMenu;
 			if ((quality === 'stable' || quality === 'insider') && ctxMenu?.[arch]) {

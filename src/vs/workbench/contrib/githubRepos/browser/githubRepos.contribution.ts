@@ -39,7 +39,7 @@ import { IListVirtualDelegate, IListRenderer } from '../../../../base/browser/ui
 import { WorkbenchList } from '../../../../platform/list/browser/listService.js';
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 import { IOthcloudAccountService, OthcloudIsSignedInContext } from '../../othcloudAccount/common/othcloudAccountService.js';
-import { IGithubOwner, ICreatedRepo, GithubApiError, resolveGithubToken, resolveGithubOwner, createGithubRepo } from './githubRepoCreation.js';
+import { IGithubOwner, ICreatedRepo, IRemoteRepo, GithubApiError, resolveGithubToken, resolveGithubOwner, createGithubRepo, listGithubRepos } from './githubRepoCreation.js';
 
 export interface IRepoEntry {
 	id: string;
@@ -100,7 +100,7 @@ function saveScanRoots(storage: IStorageService, roots: string[]): void {
 /** How deep below each scan root we look for nested git repositories. */
 const MAX_SCAN_DEPTH = 4;
 
-/** Directories we never descend into while scanning — heavy or irrelevant. */
+/** Directories we never descend into while scanning - heavy or irrelevant. */
 const SKIP_SCAN_DIRS = new Set(['node_modules', '.git', 'bower_components', 'vendor', '.hg', '.svn', 'out', 'dist']);
 
 /**
@@ -122,7 +122,7 @@ async function collectGitRepos(fileService: IFileService, dir: URI, depth: numbe
 		const stat = await fileService.resolve(dir, { resolveSingleChildDescendants: false });
 		children = stat.children ?? [];
 	} catch {
-		return; // unreadable — skip
+		return; // unreadable - skip
 	}
 	for (const child of children) {
 		if (!child.isDirectory || SKIP_SCAN_DIRS.has(basename(child.resource.fsPath))) {
@@ -146,7 +146,7 @@ async function rescanRoots(storage: IStorageService, fileService: IFileService):
 			const stat = await fileService.resolve(URI.file(root), { resolveSingleChildDescendants: false });
 			children = stat.children ?? [];
 		} catch {
-			continue; // root removed or unreadable — skip it
+			continue; // root removed or unreadable - skip it
 		}
 		// Walk each top-level child recursively so repositories nested inside
 		// folders (e.g. <root>/work/projectA) are found, not just direct children.
@@ -443,8 +443,13 @@ function uuid(): string {
 	return `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function pickFolder(accessor: ServicesAccessor, message: string): Promise<URI | undefined> {
-	const dialog = accessor.get(IFileDialogService);
+/**
+ * Takes {@link IFileDialogService} rather than a {@link ServicesAccessor}: callers
+ * reach this after awaiting, and an accessor is only valid during the synchronous
+ * part of the method it was passed to ("illegal state: service accessor is only
+ * valid during the invocation of its target method").
+ */
+async function pickFolder(dialog: IFileDialogService, message: string): Promise<URI | undefined> {
 	const picked = await dialog.showOpenDialog({
 		canSelectFolders: true,
 		canSelectFiles: false,
@@ -490,6 +495,8 @@ registerAction2(class CreateGithubRepoAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const progressService = accessor.get(IProgressService);
 		const commandService = accessor.get(ICommandService);
+		// Resolve eagerly: the accessor is dead after the first await below.
+		const fileDialogService = accessor.get(IFileDialogService);
 
 		if (!accountService.isSignedIn()) {
 			notificationService.prompt(
@@ -574,7 +581,7 @@ registerAction2(class CreateGithubRepoAction extends Action2 {
 		}
 
 		// Let the user pick where to clone it locally.
-		const parent = await pickFolder(accessor, localize('githubRepos.pickCloneParent', "Choose a folder to clone \"{0}\" into", repo.name));
+		const parent = await pickFolder(fileDialogService, localize('githubRepos.pickCloneParent', "Choose a folder to clone \"{0}\" into", repo.name));
 		if (!parent) {
 			// Repo was created on GitHub; just record it and tell the user.
 			notificationService.info(localize('githubRepos.createdNoClone', "Created {0} on GitHub. Clone it later from {1}.", repo.fullName, repo.htmlUrl));
@@ -601,6 +608,105 @@ registerAction2(class CreateGithubRepoAction extends Action2 {
 	}
 });
 
+registerAction2(class CloneGithubRepoAction extends Action2 {
+	constructor() {
+		super({
+			id: 'githubRepos.cloneFromGithub',
+			title: localize2('githubRepos.cloneFromGithub', "Clone Repository from GitHub..."),
+			icon: Codicon.repoClone,
+			category: localize2('githubRepos.category', "GitHub Repositories"),
+			f1: true,
+			menu: [{
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.equals('view', VIEW_ID),
+				group: 'navigation',
+				order: 0,
+			}],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const authService = accessor.get(IAuthenticationService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const commandService = accessor.get(ICommandService);
+		const progressService = accessor.get(IProgressService);
+		const storage = accessor.get(IStorageService);
+		// Resolve eagerly: the accessor is dead after the first await below.
+		const fileDialogService = accessor.get(IFileDialogService);
+
+		const token = await resolveGithubToken(authService);
+		if (!token) {
+			notificationService.prompt(
+				Severity.Info,
+				localize('githubRepos.cloneSignInFirst', "Sign in to OTHCloud to browse your GitHub repositories."),
+				[{ label: localize('githubRepos.signInAction', "Sign in to OTHCloud"), run: () => void commandService.executeCommand('othcloud.account.signIn') }],
+			);
+			return;
+		}
+
+		let repos: IRemoteRepo[] = [];
+		try {
+			repos = await progressService.withProgress(
+				{ location: ProgressLocation.Window, title: localize('githubRepos.loadingRepos', "Loading GitHub repositories…") },
+				() => listGithubRepos(token),
+			);
+		} catch (err) {
+			const status = err instanceof GithubApiError ? err.status : undefined;
+			notificationService.error(status
+				? localize('githubRepos.listFailedStatus', "Couldn't list your GitHub repositories (HTTP {0}).", status)
+				: localize('githubRepos.listFailed', "Couldn't list your GitHub repositories: {0}", String((err as Error).message ?? err)));
+			return;
+		}
+
+		if (!repos.length) {
+			notificationService.info(localize('githubRepos.noRemoteRepos', "No repositories are visible to your OTHCloud GitHub connection. Grant the OTHCloud GitHub App access to them on othcloud.xyz, then refresh."));
+			return;
+		}
+
+		const picked = await quickInputService.pick(
+			repos.map(repo => ({
+				label: repo.name,
+				description: repo.owner && repo.owner !== repo.name ? repo.fullName : undefined,
+				detail: repo.description,
+				iconClass: ThemeIcon.asClassName(repo.private ? Codicon.lock : Codicon.repo),
+				repo,
+			})),
+			{
+				placeHolder: localize('githubRepos.pickRepo', "Select a repository to clone"),
+				matchOnDescription: true,
+				matchOnDetail: true,
+			},
+		);
+		if (!picked) {
+			return;
+		}
+
+		const repo = picked.repo;
+		const parent = await pickFolder(fileDialogService, localize('githubRepos.pickCloneParent', "Choose a folder to clone \"{0}\" into", repo.name));
+		if (!parent) {
+			return;
+		}
+
+		// Record it now against the path it will occupy, matching what the
+		// create-then-clone flow does, so the list reflects it either way.
+		const destPath = URI.joinPath(parent, repo.name).fsPath;
+		const entries = loadEntries(storage);
+		if (!entries.some(e => e.path === destPath)) {
+			entries.push({ id: uuid(), name: repo.name, path: destPath, url: repo.htmlUrl, source: 'github' });
+			saveEntries(storage, entries);
+		}
+
+		// Clone via the git extension; it handles credentials through the auth
+		// providers and offers to open the folder when it finishes.
+		try {
+			await commandService.executeCommand('git.clone', repo.cloneUrl, parent.fsPath);
+		} catch (err) {
+			notificationService.error(localize('githubRepos.cloneFailedPlain', "Cloning failed: {0}", String((err as Error).message ?? err)));
+		}
+	}
+});
+
 registerAction2(class ScanFolderAction extends Action2 {
 	constructor() {
 		super({
@@ -620,7 +726,8 @@ registerAction2(class ScanFolderAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const storage = accessor.get(IStorageService);
 		const fileService = accessor.get(IFileService);
-		const root = await pickFolder(accessor, localize('githubRepos.pickScanFolder', "Select a folder to scan for git repositories"));
+		const fileDialogService = accessor.get(IFileDialogService);
+		const root = await pickFolder(fileDialogService, localize('githubRepos.pickScanFolder', "Select a folder to scan for git repositories"));
 		if (!root) {
 			return;
 		}
@@ -683,11 +790,11 @@ registerAction2(class ClearReposAction extends Action2 {
 
 // Welcome content for empty state
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViewWelcomeContent(VIEW_ID, {
-	content: localize('githubRepos.welcomeSignedIn', "No repositories yet.\n[Create a Repository on GitHub](command:githubRepos.createOnGithub)\n[Scan a Folder](command:githubRepos.scanFolder)"),
+	content: localize('githubRepos.welcomeSignedIn', "No repositories yet.\n[Clone from GitHub](command:githubRepos.cloneFromGithub)\n[Create a Repository on GitHub](command:githubRepos.createOnGithub)\n[Scan a Folder](command:githubRepos.scanFolder)"),
 	when: ContextKeyExpr.and(HasReposContext.toNegated(), OthcloudIsSignedInContext),
 });
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViewWelcomeContent(VIEW_ID, {
-	content: localize('githubRepos.welcome', "No repositories yet.\n[Scan a Folder](command:githubRepos.scanFolder)\nSign in to OTHCloud to create repositories on GitHub."),
+	content: localize('githubRepos.welcome', "No repositories yet.\n[Clone from GitHub](command:githubRepos.cloneFromGithub)\n[Scan a Folder](command:githubRepos.scanFolder)\nSign in to OTHCloud to create repositories on GitHub."),
 	when: ContextKeyExpr.and(HasReposContext.toNegated(), OthcloudIsSignedInContext.toNegated()),
 });
 

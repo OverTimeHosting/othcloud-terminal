@@ -19,13 +19,13 @@ import {
 import { IOthcloudAccountService } from '../common/othcloudAccountService.js';
 import { OTHCLOUD_BASE_URL, OthcloudAccountApiError } from './othcloudAccountClient.js';
 
-// Registered as the canonical `github` provider id (not a custom `othcloud-github`
-// one) so every GitHub-using surface in the workbench — Copilot Chat, the GitHub
-// Pull Requests extension, the Settings Sync UI, etc. — silently uses the
-// OTHCloud-proxied installation token instead of prompting the user to sign in
-// to GitHub directly. The built-in `vscode.github-authentication` extension's
-// own `contributes.authentication` registrations are cleared in its package.json
-// so we own this slot.
+// Registered as the canonical `github` provider id so every GitHub-using surface
+// in the workbench - GitLens, the GitHub Pull Requests extension, Settings Sync -
+// silently uses the OTHCloud-proxied installation token instead of prompting for a
+// separate GitHub sign-in. There is deliberately only one account to sign in to:
+// OTHCloud. The built-in `vscode.github-authentication` extension's own
+// `contributes.authentication` registrations are cleared in its package.json so we
+// own this slot uncontested.
 export const OTHCLOUD_GITHUB_PROVIDER_ID = 'github';
 const OTHCLOUD_GITHUB_PROVIDER_LABEL = 'GitHub';
 
@@ -47,10 +47,9 @@ interface IGithubTokenResponse {
  * installation token; cached until shortly before expiry, refreshed
  * transparently.
  *
- * Registered with the workbench's {@link IAuthenticationService} under id
- * `othcloud-github` (not `github`, to avoid stomping the built-in
- * `vscode.github-authentication` extension for now). Phase 2 can flip the id
- * once we're confident the SSO path is solid for every GitHub-using flow.
+ * Registered with the workbench's {@link IAuthenticationService} under the
+ * canonical `github` id; the built-in `vscode.github-authentication` extension is
+ * declaration-free so nothing competes for it.
  */
 export class OthcloudGithubAuthProvider extends Disposable implements IAuthenticationProvider, IWorkbenchContribution {
 
@@ -78,7 +77,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		// declared (e.g. the half-disabled built-in github-authentication
 		// extension raced us to it). If that throw escaped, the constructor would
 		// abort *before* `registerAuthenticationProvider` and the provider would
-		// never actually register — leaving GitHub-using extensions (Copilot, the
+		// never actually register - leaving GitHub-using extensions (Copilot, the
 		// PR extension) to time out waiting for `github`. So guard the declaration
 		// and always register the provider itself.
 		let didDeclare = false;
@@ -90,7 +89,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 				});
 				didDeclare = true;
 			} catch {
-				// Already declared by someone else — fine, we still register below.
+				// Already declared by someone else - fine, we still register below.
 			}
 		}
 		authService.registerAuthenticationProvider(OTHCLOUD_GITHUB_PROVIDER_ID, this);
@@ -104,7 +103,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		});
 
 		// Whenever the Othcloud session flips, our GitHub session becomes
-		// stale — invalidate so the next call refreshes.
+		// stale - invalidate so the next call refreshes.
 		this._register(this.accountService.onDidChangeAuth(() => {
 			const previous = this.cached?.session;
 			this.cached = undefined;
@@ -134,11 +133,11 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 	 * Re-wraps the cached session with whatever scopes the caller requested.
 	 *
 	 * The OTHCloud-proxied installation token has the GitHub App's actual
-	 * permissions — whatever scopes the caller asks for (`repo`, `workflow`,
+	 * permissions - whatever scopes the caller asks for (`repo`, `workflow`,
 	 * `read:user`, ...) get echoed back so VS Code's scope-matching logic
 	 * treats the session as valid for every consumer (Copilot, the PR
 	 * extension, Settings Sync, etc.). If the token can't actually perform
-	 * an operation, the API call fails downstream — but the user no longer
+	 * an operation, the API call fails downstream - but the user no longer
 	 * sees the upstream "Sign in to GitHub" prompt.
 	 */
 	private withScopes(session: AuthenticationSession, scopes: string[] | undefined): AuthenticationSession {
@@ -150,7 +149,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 
 	async removeSession(_sessionId: string): Promise<void> {
 		// Removing the desktop-side session doesn't disconnect GitHub on
-		// othcloud.xyz — that's a website action. We just drop the cache here;
+		// othcloud.xyz - that's a website action. We just drop the cache here;
 		// users disconnect via the website's git settings page.
 		const previous = this.cached?.session;
 		this.cached = undefined;
@@ -235,6 +234,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		const ANSWER = localize('othcloud.github.linkAction', 'Link GitHub on OTHCloud');
 		this.notificationService.prompt(
 			Severity.Info,
+			// allow-any-unicode-next-line
 			localize('othcloud.github.notLinked', 'GitHub isn’t linked to your OTHCloud account yet. Connect it on othcloud.xyz to deploy from this terminal.'),
 			[{
 				label: ANSWER,

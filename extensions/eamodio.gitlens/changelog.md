@@ -8,15 +8,471 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds a close-tab warning banner to the _Interactive Rebase_ editor &mdash; displays a dismissible informational banner during the planning phase to clarify that closing the tab automatically starts the rebase ([#5123](https://github.com/gitkraken/vscode-gitlens/issues/5123))
+- Adds an _Autosquash_ toggle to rebasing in the _Git Command Palette_ ([#2959](https://github.com/gitkraken/vscode-gitlens/issues/2959)) &mdash; folds `fixup!` and `squash!` commits into the commits they target, defaulting from the `rebase.autosquash` Git config; interactive rebases open the _Interactive Rebase Editor_ with the fixups already folded, while plain and automatic rebases fold them directly (requires Git 2.44)
+- Adds fixup commit support to the _Commit Graph_ ([#1031](https://github.com/gitkraken/vscode-gitlens/issues/1031)) &mdash; a new _Fixup Commit..._ action on commits seeds the working-changes commit box with a `fixup! <subject>` message, and any resolvable `fixup!` message turns the commit button into a split button: _Commit Fixup_ creates the fixup commit to squash later, while _Commit Fixup & Squash_ immediately folds it into its target commit; a new _Squash Fixups..._ action on the current branch and working-changes rows squashes all pending fixup commits into their targets via `git rebase --autosquash`, warning first when pushed commits would be rewritten
+- Adds a _Don't Ask Again_ checkbox to skippable confirmations in the _Git Command Palette_, with a gear button that jumps to the `gitlens.gitCommands.skipConfirmations` setting
+- Adds support for pushing tags ([#832](https://github.com/gitkraken/vscode-gitlens/issues/832)) &mdash; a new _Push Tag..._ action on tags in the views, the _Commit Graph_ (rows, side bar, and the tag sheet's _Next steps_), and a new _Git Push Tag..._ command in the Command Palette; choose the remote (skipped when there is only one) and confirm, with an optional force push for moved tags
+- Adds a bright lane highlight when pinning a branch's ref pill in the _Commit Graph_, and to the `Ctrl`/`Alt`-held chain highlight &mdash; the branch's lane stays lit through dimmed rows and traces down to its fork point, while other lanes mute so the highlighted one stands out
+- Adds _Hide Remote_ and _Show Remote_ actions to remote rows in the _Commit Graph_ side bar, and shows hidden branches, remotes, and tags dimmed with an _eye-closed_ marker and an un-hide action instead of leaving them indistinguishable from visible ones
+- Adds un-hiding a single branch of a hidden remote in the _Commit Graph_ &mdash; the remote stays hidden while just that branch returns, and hiding the branch again tucks it back under the hidden remote
+- Adds support for showing multiple branch and tag pills on a _Commit Graph_ row ([#5729](https://github.com/gitkraken/vscode-gitlens/issues/5729)) &mdash; a new `gitlens.graph.refs.maxInline` setting caps how many show before the rest collapse behind the +N counter, either a fixed count (default 1, the previous behavior) or `"auto"` to fit the available space
+- Adds a stacked layout for branch and tag pills in the _Commit Graph_ &mdash; a new `gitlens.graph.refs.layout` setting; when set to `"stacked"`, rows with pills grow a second line to show them above the commit instead of beside it, and a new `gitlens.graph.refs.maxStacked` setting caps how many show there before the rest collapse behind the +N counter (default `"auto"` to fit the line's width)
+- Adds following of the active terminal and Claude Code tab to the _Commit Graph_ &mdash; while a graph is visible, switching to a terminal (or a Claude Code conversation tab) selects the working changes row of the repository or worktree it is in, without raising the graph, opening the details panel, or switching repositories; a one-time tip explains the behavior the first time it moves your selection, with a _Turn Off_ action right in the tip
+  - Adds a `gitlens.graph.followTerminal.enabled` setting (on by default) with _Follow Active Terminal_ / _Stop Following Active Terminal_ toggles in the graph's "..." menus, and a `gitlens.graph.followTerminal.allowRepositorySwitching` setting to let following switch the graph to a different repository
+- Adds _Focus in Commit Graph_, _Open in Commit Graph_, and _Open in New Window_ actions to terminal tabs, terminal editor tabs, and Claude Code conversation tabs &mdash; opening the graph at the terminal's or session's worktree with its working changes selected; _Focus_ also scopes the graph to the worktree's branch
+- Adds support for the Gemini 3.7 Flash AI model
+- Adds automatic background refresh of Git's commit-graph acceleration cache &mdash; after a _Commit Graph_ load, GitLens now writes the repository's commit-graph file in the background when it is missing or stale (`git commit-graph write --reachable --split`, the same standard cache `git gc` and `git maintenance` write) so ordered history walks, like the graph's next open, start emitting rows immediately instead of sorting the whole history first; controllable via the new `gitlens.gitOptimizations.enabled` setting (requires Git 2.24 or later)
+- Adds automatic safe Git maintenance &mdash; GitLens now checks each repository's shape and, at most once a day, runs the same routine work Git performs during `git gc`: packing loose objects and incrementally repacking (which reorganize objects the repository already contains, never altering history) and writing the commit-graph acceleration cache. More invasive optimizations (enabling Git's untracked cache, FSMonitor, system-scheduled `git maintenance`, and `feature.manyFiles`) are never applied automatically, and a lever you have already configured yourself is left alone. Controlled by the new `gitlens.gitOptimizations.enabled` setting
+- Adds an experimental _Repository Health_ visualization to the _Commit Graph_ &mdash; a new heart tab in the visualizations switcher that answers whether the repository needs attention: suggested optimizations appear as cards with meters showing the measured value against the threshold that triggered them, every optimization carries expandable details explaining what it does and its trade-offs, and a ledger lists each one with its state and ownership &mdash; a lever GitLens applied offers _Undo_, while one enabled in your own Git config is left alone. Includes a per-repository on/off toggle for the automatic commit-graph maintenance, a _Run Maintenance Now_ action, and a new _Show Repository Health_ command that opens the graph directly on the tab. Part of the experimental Commit Graph visualizations (`gitlens.graph.experimental.visualizations.enabled`)
+- Adds feedback when a _Commit Graph_ jump can't land ([#5699](https://github.com/gitkraken/vscode-gitlens/issues/5699)) &mdash; jumping to a commit hidden by your filters, branch visibility, scope, or first-parent-only following now shows a message naming the blocker with a one-click remedy (e.g. _Show Branch_, _Clear Scope_) that completes the jump; a commit that isn't in the repository is reported immediately instead of silently timing out, and longer history searches show a cancellable _Looking for…_ indicator
+- Adds a _Start Auto-Rebase_ split button to the _Interactive Rebase Editor_ (with _Recompose_ tucked into its menu) &mdash; hands the pending rebase off to automatic (AI) conflict resolution before it starts, executing the todo exactly as you arranged it: the editor closes, the run waits for the rebase's first stop and takes over from there, and a rebase that finishes without pausing is reported as completed. Deliberate stops keep working the way you asked &mdash; `edit`/`break` hand back to you with a _Resume with AI_ path, and a commit message a `reword` or `squash` needs opens for you to write, both before automation engages and mid-run &mdash; where it was previously kept or auto-accepted without asking (this also applies to _Continue Automatic Rebase_) ([#5714](https://github.com/gitkraken/vscode-gitlens/issues/5714))
+- Adds persistent automatic-rebase actions where its escalations land &mdash; when a run stops for you, the _Commit Graph_'s **Resolve** panel now keeps _Resume with AI_ and _Abort Rebase_ available (previously only offered by a transient toast), and the _Interactive Rebase Editor_'s paused view gains a _Continue with AI_ button that hands the rest of the rebase to automatic conflict resolution
+- Adds intent-aware natural language search to the _Commit Graph_ &mdash; "only show &hellip;" phrasings filter the graph to matches, "take me to &hellip;" phrasings jump to the commit, and searches that find nothing offer counted broader alternatives (e.g. _1000+ without the date filter_) instead of a dead end
+- Adds `committer:`, `type:merge`, and `-message:` (exclude) operators to commit search in the _Commit Graph_ and _Search & Compare_
 
 ### Changed
 
-- Improves the _Connect More Agents_ picker to only show agents that don't already have the GitKraken MCP installed, with a clearer empty state when all detected agents are already connected ([#5142](https://github.com/gitkraken/vscode-gitlens/issues/5142))
+- Changes the _Git Command Palette_'s confirmations to one consistent design &mdash; action rows (safest pre-selected) plus checkbox toggles for options, replacing a row for every flag combination; toggles default from your Git config (`fetch.prune`, `merge.ff`), and _Force_ toggles visibly rewrite the action and never default on
+- Changes pushing in the _Git Command Palette_ to three consistent confirmation shapes &mdash; ahead, behind, and unpublished &mdash; with the blocking reason shown above the choices and the _Fetch_ action beside the input
+- Changes switching in the _Git Command Palette_ to just the targets, with an _In a New Worktree_ toggle (remembered per repository); _Switch to Local Branch & Fast-Forward_ now works in a worktree
+- Changes stashing in the _Git Command Palette_ to ask for the message first, so the final Enter stashes &mdash; and a new _Stash Changes & Untracked_ mode plus a _Keep Staged_ toggle make previously unreachable combinations possible
+- Changes worktree creation in the _Git Command Palette_ to set the location via in-place _Root Folder..._ / _Specific Folder..._ rows and an _After Creating_ choice (defaulting from `gitlens.worktrees.openAfterCreate`), replacing the post-create prompt
+- Changes worktree deletion in the _Git Command Palette_ to a single step &mdash; _Delete Branch_ / _Delete Upstream_ toggles (remembered) replace chaining into the branch-delete flow, and uncommitted-changes warnings appear before Enter instead of as modals after
+- Changes the _Git Command Palette_'s subcommand menus to Title Case labels (e.g. _Merge Target_ instead of `mergeTarget`); typing the raw key still filters
+- Changes the default remote's `default` text badge in the _Commit Graph_ side bar to a check mark, matching the current branch marker
+- Changes the _Commit Graph_'s hidden branches/tags list to show remotes with their provider's icon, matching the side bar, instead of a low-fidelity avatar image
+- Changes _Commit Graph_ search failures to say what actually went wrong &mdash; unknown references are reported by name and real errors no longer blame the search pattern
+- Changes _Commit Graph_ search to quietly match literally when a pattern isn't a valid regular expression &mdash; instead of erroring while a pattern is mid-typed &mdash; with a _Match Literally_ action when nothing matches
+- Improves natural language search error handling in the _Commit Graph_ &mdash; failed AI queries are repaired automatically, AI-unavailable searches offer _Search as text instead_, and invalid patterns offer _Fix with AI_
+- Improves natural language search to understand the repository &mdash; branch, tag, worktree, and contributor names resolve to the real thing instead of being guessed
+- Improves natural language search to explain how a query was interpreted via a tooltip on the generated query
+- Improves natural language search to recognize misspelled author names and offer counted corrections (e.g. _7 as 'Keith Daulton'_)
 
 ### Fixed
 
-- Fixes an issue where untracked files were missing from the _Compare Working Tree with&hellip;_ file list unless manually staged with `git add -N` first ([#5158](https://github.com/gitkraken/vscode-gitlens/issues/5158))
+- Fixes the push confirmation pre-selecting _Force Push_ when the branch is behind its upstream &mdash; Enter force-pushed; _Cancel_ is now the default
+- Fixes `:command`-scoped entries in `gitlens.gitCommands.skipConfirmations` never applying to subcommands &mdash; e.g. `stash-push:command` still confirmed when stashing from a view
+- Fixes _Hide Remote_ in the _Commit Graph_ only hiding the selected branch instead of all of the remote's branches ([#5728](https://github.com/gitkraken/vscode-gitlens/issues/5728))
+- Fixes the split conflict status icons rendering clipped in file trees &mdash; e.g. the _Commit Graph_'s _Working Changes_ details and _Resolve_ mode, and the _Inspect_ and _Patch Details_ views
+- Fixes the _Commit Graph_ sometimes failing to scroll to a revealed row &mdash; on long jumps (deep links, _Show in Commit Graph_, and similar reveals) the selection landed but the viewport could strand partway
+- Fixes an automatic rebase continuing past a conflicted commit marked `edit` &mdash; git delivers an `edit` step's stop as its conflict stop, so resolving and continuing consumed the requested pause and ran the rebase to completion; the run now resolves and stages the step's conflicts, then stops for the editing you asked for
+- Fixes searching by author `@username` in GitHub virtual repositories dropping the first character of the username
+- Fixes searching by author or committer `@me` in GitHub virtual repositories skipping the filter entirely for accounts without a display name
+- Fixes the _Commit Graph_'s search history reading and saving under the first-opened repository after switching repositories in a multi-repo workspace
+
+## [19.0.1] - 2026-08-13
+
+### Added
+
+- Adds support for the latest AI models &mdash; Claude Opus 5 and Claude Fable 5, GPT-5.6 (Sol, Terra, and Luna), Grok 4.6, Mistral Medium 3.5, Mistral Large 3, Mistral Small 4, the Ministral 3 family (14B, 8B, and 3B), and GLM 5.2
+
+### Changed
+
+- Changes single-clicking a file in the _Commit Graph_'s _Review_ mode to open its diff against the review scope, matching clicking a finding's file reference
+- Changes the recommended AI model for OpenAI to GPT-5.6 Luna, and for Mistral to Mistral Small 4
+
+### Removed
+
+- Removes the `deepseek-chat` and `deepseek-reasoner` models, retired by DeepSeek
+
+### Fixed
+
+- Fixes the _Commit Graph_ welcome re-appearing after being dismissed &mdash; the dismissal could be lost when choosing a layout on the welcome, reverted by other windows' onboarding writes, or flash back from stale state when the view was collapsed and expanded
+- Fixes file context menu actions silently doing nothing in the _Commit Graph_'s _Compose_ and _Review_ modes for files coming from the scope's included commits, and adds the missing file context menus to the _Resolve_ mode's conflicts tree
+- Fixes deleted branches lingering in the _Commit Graph_ and views when the branch's ref was packed (e.g. after `git gc`)
+- Fixes incorrect context window and maximum output token limits across the Anthropic, OpenAI, Mistral, xAI, and DeepSeek models
+
+## [19.0.0] - 2026-08-12
+
+### Added
+
+- Adds a new home for GitLens &mdash; the _Commit Graph_ now leads the GitLens side bar as its main view (only the default location changes, so a graph you moved yourself stays put, and a one-time prompt offers the bottom panel), adapting to the side bar's width with compact list-style rows and the details panel below the graph; widen or move the view for the columnar table layout ([#5545](https://github.com/gitkraken/vscode-gitlens/issues/5545))
+  - Adds empty states &mdash; with no repository open, offers _Open a Folder_, _Clone a Repository_, and _Start a New Project_ actions (an _Open Remote Repository_ action in web/virtual environments), and in a workspace running in Restricted Mode offers _Manage Workspace Trust_, refreshing to your history as soon as trust is granted ([#5408](https://github.com/gitkraken/vscode-gitlens/issues/5408))
+  - Adds a sign-in experience &mdash; signed-out users see a _Get Started with GitLens_ screen with a rotating spotlight of what GitLens unlocks, completing sign-in lands on a welcome that introduces the graph and its walkthrough, and arriving via a specific task (composing, an AI review, comparing, or resolving conflicts) shows messaging for that task and returns you to it once access is restored ([#5534](https://github.com/gitkraken/vscode-gitlens/issues/5534))
+  - Adds an account pill to the header &mdash; ringed in a color tracking your entitlement, opening a rollup with your account, walkthrough progress, and _AI_, _Agents_, and _Integrations_ setup status, each deep-linking into _GitLens Settings_; the _Show Account_ command (renamed _Show Account in Settings_) now opens there too ([#5522](https://github.com/gitkraken/vscode-gitlens/issues/5522))
+  - Adds contextual how-tos (coach marks) &mdash; the first time you reach a feature (commit details, _Compose_, _Review_, conflicts, _Resolve_, _Compare_, the agents list, the overview bar, and more) a short tip opens right where you are; dismiss it for good, or park it on a lightbulb to reopen any time, with "new" dots on the features you haven't tried yet ([#5516](https://github.com/gitkraken/vscode-gitlens/issues/5516))
+  - Adds _What's New_, _Help Center_, _Report Issue (GitHub)_, and _Share Feedback (GitHub)_ to the graph's "..." menu and the _Welcome_ view toolbar
+- Adds an all-new high-performance rendering engine on the _Commit Graph_, rewritten from the ground up &mdash; loading, rendering, updating, and scrolling are significantly faster, it uses substantially less memory, and it is far more keyboard and screen reader accessible
+  - Adds column grouping for the _Graph_ and _Branches / Tags_ columns (enabled by default) for a more compact layout, and lane folding to collapse commit histories that aren't relevant right now
+  - Adds new perceptually-uniform lane colors for dark and high-contrast themes (existing `gitlens.graphLane1Color`&ndash;`gitlens.graphLane10Color` customizations are honored), and branch highlighting that follows a branch's own lane and stops at its merge base
+  - Adds row markers for HEAD, its upstream, and its merge target &mdash; role-colored reference pills (HEAD in a clearer green, its upstream the deeper green of the same hue) with matching markers on the scroll bar &mdash; plus row decorations for commits waiting to be pulled (red) or pushed (green)
+  - Adds a context menu to the scroll marker rail to toggle marker types in place, and clicking a marker now selects and focuses its row instead of just scrolling near it; the optional additional marker types are now off by default to reduce clutter
+  - Adds previews of what a pull or push would do to the _Pull_ and _Push_ buttons &mdash; hovering offers a jump to the commits involved (Alt+click jumps without acting), and the pull preview warns when uncommitted changes would block the pull or how many files would conflict, simulated the way your `pull.rebase` setting will actually integrate (conflict detection requires GitLens Pro and Git 2.33+)
+  - Adds a "quick-access" overview bar for showing and quickly jumping to recent worktrees &mdash; use the new `gitlens.graph.overviewBar.visibility` setting to control when it appears
+  - Adds an indicator dot to working changes (WIP) rows with uncommitted changes, and a "jump pill" on the main WIP row when it isn't directly attached to HEAD, for easy jumps to HEAD, the upstream, and the merge target
+  - Adds _Apply / Pop Stash..._ and _Apply Copied Changes (Patch)_ options to working tree (WIP) rows &mdash; invoked from another worktree's WIP row, the changes are applied into that worktree
+  - Adds a type-ahead reference finder &mdash; press `/` (or use the search icon in the references column header) and type to jump to a branch, tag, or worktree; &uarr;/&darr; step through matches, and references that aren't loaded yet are offered too, fetched only when you press Enter
+  - Adds a _Show Remote Branches_ toggle to the side bar's _Branches_ panel &mdash; lists the default remote's branches alongside local ones (falling back to `origin` when no default remote is set), shared with the _Branches_ view via `gitlens.views.branches.showRemoteBranches`; remote branches also become pickable in the _Focus Branch_ scope picker
+  - Adds visualization modes for the _Changes_ column &mdash; numbers, squares, bar, or a two-sided bar, with compact versions as the column narrows &mdash; behind a one-time opt-in overlay to avoid impacting performance by default
+  - Adds a sticky timeline that names the time period you're scrolled to, with a new `gitlens.graph.timelineSeparators` setting to draw dividers between date groups
+  - Adds comprehensive keyboard shortcuts &mdash; jump to HEAD, upstream, merge target, or working changes with `h`/`u`/`t`/`w`, fold lanes with &larr;/&rarr;, toggle the minimap, side bar, and details with `Alt`+`M`/`S`/`D`, hold `Ctrl` (or `Alt`) to highlight the focused branch's lane, peek the focused commit's rich hover with `i`, and press `?` for the full reference; `Esc` now closes one thing per press
+- Adds an automatic rebase that resolves conflicts end-to-end with AI &mdash; choose _Automatic Rebase_ in the rebase quick menu to resolve, stage, and continue each conflicted step, narrated live in the _Commit Graph_'s **Resolve** panel with each file's strategy, confidence, and reasoning, and a _Cancel Rebase_ action that restores the branch's pre-rebase state. It pauses for review when confidence falls below `gitlens.ai.autoRebase.confidenceThreshold`, and finishes with a per-step summary and a validated _Undo_ ([#5450](https://github.com/gitkraken/vscode-gitlens/issues/5450))
+- Adds repository consultation to AI-powered conflict resolution _(Preview)_ &mdash; when a conflict hunk is ambiguous on its own, AI can now read the file, blame or log the lines in question, search for other uses of the symbols involved, and diff the two sides before choosing a resolution. Consultation is read-only and bounded, reported as it happens in the _Commit Graph_'s **Resolve** panel and the automatic rebase, and each resolution's reasoning cites what was consulted; your AI file-exclusion rules (`gitlens.ai.exclude.files` and `.aiignore`/`.cursorignore`/`.aiexclude`) now apply to everything AI reads ([#5581](https://github.com/gitkraken/vscode-gitlens/issues/5581))
+- Adds a `gitlens.ai.resolveConflicts.customInstructions` setting &mdash; standing guidance for AI conflict resolution (e.g. "prefer the incoming side for lock files"), applied to every conflict AI resolves; guidance typed for a single run still applies on top
+- Adds rich pull request support to the _Commit Graph_ &mdash; browse, focus, review, and merge pull requests without leaving the graph
+  - Adds a _Pull Requests_ panel to the side bar &mdash; the repository's open pull requests, most-recently-updated first, with _Launchpad_-style status indicators and rich hovers; rows offer switch and worktree actions, _Open Pull Request on Remote_, and _Focus_, which scopes the graph to the pull request's branch &mdash; offering to fetch it first (even from a fork) when it isn't local yet
+  - Adds a pull request details sheet &mdash; selecting a pull request anywhere in the graph opens its details, description, and stack map, with switch and worktree actions, _Compare Changes_, _Review Changes_ (an in-place AI review), _Review with Agent..._, and a split merge button (merge, squash, or rebase) that confirms in place
+  - When the repository's remote has no integration connected, the panel offers to connect one and fills in without a reload
+- Adds support for GitHub's stacked pull requests
+  - Badges each layer with its position on ref pills and hovers, and groups a stack's layers in the new _Pull Requests_ panel
+  - _Focus Pull Request_ on any layer scopes the graph to the whole stack, and the pull request sheet's stack map lets you step between layers
+  - Merging routes through GitHub's stack-aware merge, with a confirmation naming how many pull requests will land
+  - Adds stack context to _Launchpad_ &mdash; stacked pull requests show their layer position, and merging one becomes _Merge Stack..._, running under cancellable progress with failures reported
+- Improves the _Commit Graph_'s details panel &mdash; smarter placement and new full-height sheets
+  - Docks to whichever side of the graph has the room, gains a maximize control (automatic when entering compose, review, resolve, or compare, via `gitlens.graph.details.maximizeOnMode`), and double-clicking a splitter resets it
+  - Adds a branch and tag details sheet &mdash; selecting a branch or tag reference opens its issue and pull request, upstream and merge-target relationship cards with sync, rebase, and merge actions (rooted at the ref's own worktree), _Focus_ and _Hide_ toggles, _Open on Remote_, and AI-powered _Explain_ and _Generate Changelog_ actions &mdash; for tags, the changelog covers what shipped since the previous tag
+  - Adds keyboard support to file trees &mdash; `Space` toggles a row's checkbox (e.g. staging), `Alt`+`Space` unchecks a mixed one (matching `Alt`+click), and `Ctrl`/`Cmd`+`F` opens and focuses the tree's search/filter box
+- Adds AI agent session enhancements to the _Commit Graph_ and _Home_ &mdash; a _Resume Agent Session..._ option on working tree (WIP) rows to open live sessions or resume past ones, sessions listed in the working-changes and branch details, and completed sessions from the last 30 days available behind a filter toggle in the _Agents_ panel, each with _Resume Session_ and _Archive Session_ actions
+- Adds support for locked worktrees &mdash; new _Unlock Worktree_ commands, and deleting a locked worktree now surfaces the lock's reason with an offer to force-delete instead of failing with a raw Git error
+- Improves the _GitLens Settings_ page with new sections and a reorganized category rail ([#5392](https://github.com/gitkraken/vscode-gitlens/issues/5392))
+  - Adds an _Account_ section leading the rail &mdash; your account, plan, and subscription actions, with your avatar on its rail item when signed in
+  - Adds a _Get Started_ section, where a first open now lands &mdash; a four-step setup launchpad (sign in, connect integrations, choose an AI model, set up agents) with a completion ring tracking what's left
+  - Adds an _Agents_ section &mdash; every detected coding agent grouped by kind, each with a _Default_ picker and, for CLI agents, install controls for GitKraken MCP and Claude Hooks
+  - Adds a _Custom Remotes_ section &mdash; configures the `gitlens.remotes` setting in the UI instead of hand-editing JSON
+  - Adds per-feature AI model controls to the _AI_ section &mdash; the model for _Composing Commits_, _Reviewing Changes_, and _Resolving Conflicts_ can each be set independently of the default, with each row naming the model it will actually use and a _Use Default_ action to drop an override
+  - Reorganizes the category rail into _Setup_, _Integrations_, _Views_, _Editor_, and _General_ groups
+- Adds an optional `mode` parameter to the `graph` command deep link (e.g. `vscode://eamodio.gitlens/link/command/graph?mode=compose`) &mdash; opens the _Commit Graph_ directly into _Compose_ or _Review_ ([#5226](https://github.com/gitkraken/vscode-gitlens/issues/5226))
+- Adds an _Edit SSH Allowed Signers_ editor &mdash; discovers signers from this repository's SSH-signed commits and from connected GitHub and GitLab signing keys, then writes an `allowed_signers` file (optionally pointing `gpg.ssh.allowedSignersFile` at it) so Git can verify SSH-signed commits. Open it from the Command Palette, or from _Add to allowed signers…_ on an unverified signature ([#5469](https://github.com/gitkraken/vscode-gitlens/issues/5469))
+- Adds support for Gemini 3.6 Flash and Gemini 3.5 Flash-Lite AI models
+
+### Changed
+
+- Changes the _Home_, _Cloud Patches_, and _Cloud Workspaces_ views to be hidden by default &mdash; applied once on upgrade too (landing you on the Graph in its new home); each remains available from the Command Palette and stays visible once shown ([#5545](https://github.com/gitkraken/vscode-gitlens/issues/5545))
+- Changes commit composition to happen in the _Commit Graph_'s details panel, now the single place to compose &mdash; the standalone _Commit Composer_ editor is gone, and every entry point (the _Compose Commits..._ command, the _Source Control_ view, the GitLens views, _Home_, the GitKraken MCP tools, and the _Interactive Rebase Editor_) opens compose in the graph instead. _Recompose_ on a branch, a commit selection, or a single commit works there too, and a new drag handle narrows a compose to staged changes only, commits only, or a range of the two. AI composition also improves &mdash; more accurate commit message convention detection, noise hunks filtered out of proposals, and better handling of very large change sets ([#5506](https://github.com/gitkraken/vscode-gitlens/issues/5506))
+- Changes the rebase quick menu's confirm step &mdash; an _Update Branches_ toggle now applies `--update-refs` to whichever rebase you choose (_Rebase_, _Automatic Rebase_, or _Interactive Rebase_), replacing the separate _& Update Branches_ variants ([#5450](https://github.com/gitkraken/vscode-gitlens/issues/5450))
+- Changes paused-rebase auto-open (`gitlens.rebaseEditor.openOnPausedRebase`) to only open for rebases you're driving from GitLens &mdash; a new `auto` value, now the default, ignores paused rebases started outside GitLens (terminals, agents, other tools), which previously popped open the _Interactive Rebase Editor_ or _Commit Graph_ uninvited; set it to `true` to restore the previous behavior ([#5686](https://github.com/gitkraken/vscode-gitlens/issues/5686), [#4954](https://github.com/gitkraken/vscode-gitlens/issues/4954))
+- Changes paused merge, rebase, cherry-pick, and revert conflicts to surface in one place &mdash; the _Commit Graph_'s working changes (WIP) details, or the _Interactive Rebase Editor_ for rebases when the graph isn't usable
+- Changes the _Commit Graph_'s paused-operation bar into a state-driven strip &mdash; a labeled primary action (e.g. _Resolve 3 Conflicts_), an all-resolved ready state, a "paused at step m/t" link that jumps to the commit being applied, _Continue with Empty Commit_ where Git offers it, and paused reverts can now be continued end-to-end
+- Changes the _Commit Graph_ sidebar to be unpinned by default &mdash; it floats over the graph and auto-collapses when it loses focus or on Esc; pin it (or set `gitlens.graph.sidebar.pinned`) to restore the shared-space layout ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
+- Changes the _Commit Graph_ header's jump-to-reference button into a _Focus Branch_ control &mdash; clicking focuses (scopes) the graph to the current branch (clicking again clears it), and Alt-clicking opens the _Focus Branch_ picker; branch and worktree rows in the side bar gain an inline _Focus_ action too ([#5556](https://github.com/gitkraken/vscode-gitlens/issues/5556))
+- Improves branch pinning in the _Commit Graph_ &mdash; the off-screen HEAD and pinned-branch indicators merge into a single waypoints capsule, the pinned branch gets its own scroll bar marker, unpinning now lives on the reference pill itself, and side bar rows show pin and current-branch indicators ([#5409](https://github.com/gitkraken/vscode-gitlens/issues/5409), [#5626](https://github.com/gitkraken/vscode-gitlens/issues/5626), [#5624](https://github.com/gitkraken/vscode-gitlens/issues/5624))
+- Changes the _Commit Graph_ header's _Launchpad_ pill into a compact indicator &mdash; a severity dot on the rocket (red when anything is blocked, yellow for other actionable work) with the full breakdown on hover ([#5522](https://github.com/gitkraken/vscode-gitlens/issues/5522))
+- Changes the _Commit Graph_ minimap to be hidden by default and shown while searching &mdash; controlled by a new `gitlens.graph.minimap.defaultVisibility` setting (`"onSearch"`, the new default, `"always"`, or `"hidden"`); `gitlens.graph.minimap.enabled` goes back to a plain boolean for whether the minimap is available at all &mdash; set `defaultVisibility` to `"always"` to keep the previous always-shown behavior ([#5598](https://github.com/gitkraken/vscode-gitlens/issues/5598))
+- Changes where terminal links open &mdash; a commit, branch, or tag clicked in the terminal now opens in the _Commit Graph_ by default, configurable via the new `gitlens.terminalLinks.showIn` setting (replacing `gitlens.terminalLinks.showDetailsView`; existing values migrate), and ranges like `main..feature` now open as a comparison
+- Changes when the _Commit Graph_ side bar's _Worktrees_ panel loads each worktree's working change counts &mdash; a fast check settles clean vs. dirty and the `+N ~M -K` breakdown loads only when you hover a row, instead of a `git status` per worktree up front
+- Changes the Pro feature gate to adapt to constrained spaces &mdash; the feature list, messaging, and spacing compact in narrow or short placements without hiding content ([#5519](https://github.com/gitkraken/vscode-gitlens/issues/5519))
+- Improves switching AI models &mdash; with a provider already selected, the picker opens directly to its model list, with a _Change AI Provider_ entry keeping provider switching one pick away ([#5584](https://github.com/gitkraken/vscode-gitlens/issues/5584))
+- Changes _GitLens: Reset Stored Data..._ &mdash; adds AI model, GitKraken CLI install, and _Commit Graph_ cache resets, and a full reset now prompts to reload the window
+- Improves _Commit Graph_ and commit details performance &mdash; reference metadata loads through a bounded pool and streams in as it lands, background worktree probes no longer compete with the graph's own Git work, holding a navigation key no longer spawns a Git process per row crossed, and commit details open faster and stay interactive during refreshes
+- Renames the _Home_ view's _GitHub Issues_ and _GitHub Discussions_ actions to _Report Issue (GitHub)_ (now opening the new-issue template chooser) and _Share Feedback (GitHub)_
+
+### Fixed
+
+- Fixes blame going stale for open files after you commit, pull, or switch branches outside of VS Code &mdash; blame annotations, hovers, and CodeLens kept showing an older commit for lines a newer commit had changed, until the file was reopened or the window reloaded; this affected repositories at any path containing an uppercase character &mdash; nearly all of them on Windows and macOS ([#5523](https://github.com/gitkraken/vscode-gitlens/issues/5523))
+- Fixes diffs opened from GitLens views and details landing at the top of the file instead of scrolling to the first change
+- Fixes per-file actions (stage, unstage, conflict options) missing from working-changes file rows in the _Commit Graph_ and _Inspect_ views ([#5548](https://github.com/gitkraken/vscode-gitlens/issues/5548))
+- Fixes GitLens silently pinning your AI provider to Copilot without you ever choosing it &mdash; GitKraken AI is now the only provider selected automatically, nothing is written to `gitlens.ai.model` unless you pick a model yourself, and settings written by the old behavior are cleared on upgrade, leaving choices you made yourself untouched ([#5612](https://github.com/gitkraken/vscode-gitlens/issues/5612))
+- Fixes a scoped AI model selection leaking into the global default &mdash; resolving a model for _Review_ or _Compose_ could write that operation's preferred model into `gitlens.ai.model` for every other AI feature
+- Fixes AI conflict resolution failing outright on models that don't accept a temperature (seen as "upstream AI provider error (OpenAI HTTP 400)" on GPT-5 models via GitKraken AI)
+- Fixes AI conflict resolution failing with _No active merge, rebase, or cherry-pick conflicts to resolve_ when conflicts exist without a paused Git operation, such as after a `git stash pop` ([#5487](https://github.com/gitkraken/vscode-gitlens/issues/5487))
+- Fixes focusing (scoping) the _Commit Graph_ on a branch sometimes dimming the whole graph instead of re-rooting it, dropping the focused branch's own commits, doing nothing for remote branches, and the focused branch or its working changes row being filtered out from under its own scope
+- Fixes the _Commit Graph_'s hidden branches/tags list not identifying which refs are hidden &mdash; entries now name their remote, group by type, and refs that no longer exist are no longer listed or counted
+- Fixes branches with parentheses in their names (e.g. `feat/(wip)`) being treated as a detached HEAD &mdash; the working changes row vanished and the toolbar showed a SHA instead of the branch name
+- Fixes a transient Git or network failure being cached and served as a real answer for the rest of the session &mdash; blanked branch/tag lists, an authoritative "no issues" for a branch, or stale commit counts that never recovered
+- Fixes a branch deleted or renamed through GitLens leaving its stored base and merge target behind &mdash; a new branch reusing the name no longer inherits the dead branch's merge target
+- Fixes AI agent sessions being attributed to the wrong worktree, and sessions needing input sometimes showing _Allow_/_Deny_ actions that could not work &mdash; a live permission ask can also no longer be denied by an unrelated event from the same session
+- Fixes the _Get Started with the Graph_ walkthrough's _Focus the Commit Graph_ action silently doing nothing on a detached HEAD &mdash; GitLens now explains that there is no current branch to focus and offers switching to a branch, focusing the graph on it once switched
+- Fixes AI agent sessions from other AI CLIs (Codex, GitHub Copilot CLI, Cursor, OpenCode, Antigravity) appearing as _Claude Code_ sessions on _Home_ and the _Commit Graph_ ([#5715](https://github.com/gitkraken/vscode-gitlens/issues/5715))
+- Fixes a transient _Launchpad_ failure (e.g. an expired token at startup) sticking the _Commit Graph_ header on an error state for up to 30 minutes with refresh doing nothing
+- Fixes the _Commit Graph_ side bar's _Worktrees_ panel running per-worktree Git commands while collapsed and without bound &mdash; on repositories with many worktrees this could saturate GitLens's Git queue and hold up other Git work
+- Fixes the _Commit Graph_ working changes (WIP) details continuing to show files after they were committed or discarded outside of VS Code
+- Fixes working-changes actions invoked from another worktree's row (copy patch, compose, explain, review) acting on the current worktree instead of the row's worktree
+- Fixes _Copy Changes (Patch)_ producing an empty or incomplete patch &mdash; fully-staged selections reported "No changes found to copy", mixed selections silently dropped their staged changes, and renamed files copied as a bare add of the new path
+- Fixes the _Commit Graph_ view's progress indicator repeatedly flashing while nothing appears to change (most noticeable after the window regains focus)
+- Fixes the _Commit Graph_ sidebar list hovers repeatedly opening and closing in narrow viewports, and the sidebar restoring at its minimum width after a reload
+- Fixes rows in the _Commit Graph_ side bar panels nudging their trailing decorations to the left on hover
+- Fixes search results being invisible on the _Commit Graph_'s minimap exactly where you were looking &mdash; result markers were drawn underneath the visible-range band
+- Fixes working tree (WIP) search results (`type:wip`) all being marked at today on the _Commit Graph_'s minimap &mdash; each worktree's WIP row is now marked at the commit it's anchored to
+- Fixes clearing a natural language search in the _Commit Graph_ silently re-populating the search box a moment later
+- Fixes the paused-operation bar offering an enabled _Continue_ while Git was still waiting for you to save and close the commit message tab &mdash; the bar now holds an in-progress state until the operation actually settles ([#5656](https://github.com/gitkraken/vscode-gitlens/issues/5656), [#5668](https://github.com/gitkraken/vscode-gitlens/issues/5668))
+- Fixes _Recompose_ failing outright when branches or tags point at commits inside the range being recomposed &mdash; it now warns that those references won't follow the new history and recomposes if you continue ([#5515](https://github.com/gitkraken/vscode-gitlens/issues/5515))
+- Fixes the _Commit Graph_'s compose preview misaligning changes for the second and later proposed commits, and dropping earlier hunks of a file renamed with edits &mdash; preview only; applying the compose was unaffected ([#5596](https://github.com/gitkraken/vscode-gitlens/issues/5596), [#5606](https://github.com/gitkraken/vscode-gitlens/issues/5606))
+- Fixes excluding an untracked nested repository from a compose having no effect &mdash; it was still sent to AI and still committed; its row in _Files Changed_ also now names the directory instead of being blank ([#5611](https://github.com/gitkraken/vscode-gitlens/issues/5611), [#5629](https://github.com/gitkraken/vscode-gitlens/issues/5629))
+- Fixes leaving the _Commit Graph_'s compose or resolve panel discarding your typed AI instructions and _Refine_ state &mdash; both are restored when you return
+- Fixes a review of your working changes never including untracked files, and failing with _No changes found_ when untracked files were the only unstaged changes ([#5586](https://github.com/gitkraken/vscode-gitlens/issues/5586))
+- Fixes files you excluded from a review being able to reach AI anyway via a cached pre-exclusion diff ([#5630](https://github.com/gitkraken/vscode-gitlens/issues/5630))
+- Fixes changing `gitlens.ai.ollama.url` keeping the previously resolved model and model list &mdash; the model is re-resolved against the new server ([#5633](https://github.com/gitkraken/vscode-gitlens/issues/5633))
+- Fixes the compare panel's "commits in between" count reading 0 when the newer commit was picked first ([#5547](https://github.com/gitkraken/vscode-gitlens/issues/5547))
+- Fixes signing back in after a sign-out interrupted a _Commit Graph_ comparison reopening the comparison on different references ([#5671](https://github.com/gitkraken/vscode-gitlens/issues/5671))
+- Fixes the _Commit Graph_ header's account/subscription state never updating after the view loads &mdash; sign-in/sign-out, organization switches, and plan changes now update live instead of requiring a reload ([#5513](https://github.com/gitkraken/vscode-gitlens/issues/5513))
+- Fixes the account panel not showing your account when you aren't in an organization &mdash; solo accounts now show their avatar, name, and email in _Home_ and the _Commit Graph_
+- Fixes GitLens needing a window reload to notice when you trust a workspace &mdash; repositories are now discovered as soon as you grant trust
+- Fixes issue and pull request loading failing wholesale when an author's GitHub account has been deleted &mdash; one failing item or connection no longer discards the rest
+- Fixes self-managed cloud integrations (e.g. GitHub Enterprise, GitLab Self-Hosted) repeatedly issuing a token request the server rejects on every session refresh, and legacy connections stuck reported as connected with no usable token ([#5497](https://github.com/gitkraken/vscode-gitlens/issues/5497))
+- Fixes a healthy cloud integration being fully disconnected when a backend error lands during an automatic session refresh &mdash; only a definitive "no token" response disconnects it now, so transient failures self-heal ([#5569](https://github.com/gitkraken/vscode-gitlens/issues/5569))
+- Fixes a webview quietly going stale after it reconnects (e.g. moving the _Commit Graph_ between panels) &mdash; change notifications stopped flowing and an active search could be silently dropped
+- Fixes Alt/Ctrl/Shift-dependent UI staying engaged when focus moves from a GitLens view to an editor or quick pick with the key held
+- Fixes commit details showing the autolinks strip when `gitlens.views.commitDetails.autolinks.enabled` is off
+- Fixes file tree search boxes only matching file names &mdash; paths with folder separators (e.g. `src/git/`) now match
+- Fixes the _Choose Commit..._ and _Search for Commit_ buttons in the _Inspect_ view's empty state doing nothing when clicked
+
+### Removed
+
+- Removes the _Pro_ feature badge from the _Commit Graph_ header &mdash; the _Start New_ menu now occupies that area ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
+- Removes the AI terms confirmation prompt &mdash; AI features no longer interrupt your first use to ask you to accept; the large prompt warning (`gitlens.ai.largePromptWarningThreshold`) is unaffected
+- Removes code suggestions from _Launchpad_ &mdash; affected pull requests now group under their provider-assigned category
+- Removes the _Reset Current Branch to Previous Commit_ command from the _Commit Graph_ and the views
+- Removes the `gitlens.graph.highlightRowsOnRefHover` setting &mdash; click a reference to pin it and highlight its lineage instead
+- Removes the _GitLens: Toggle Commit Graph_ command from the Command Palette &mdash; use _Show Commit Graph_ instead; _Toggle Maximized Commit Graph_ now just reveals the Graph and stays available for existing keybindings ([#5545](https://github.com/gitkraken/vscode-gitlens/issues/5545))
+
+## [18.3.0] - 2026-07-09
+
+### Added
+
+- Adds ConfigCat-based feature flag service for A/B testing and experimentation support ([#5092](https://github.com/gitkraken/vscode-gitlens/issues/5092))
+- Adds an optional `avatar` URL template to custom remotes in the `gitlens.remotes` setting &mdash; enables corporate and self-hosted setups to resolve commit-author avatars via a templated URL with `${email}`, `${emailName}`, `${domain}`, and `${size}` tokens; identity values are component-encoded before interpolation to keep attacker-controllable commit emails from injecting URL-structural characters, and templates configured via workspace settings require explicit user approval on first use in a trusted workspace (revocable via _GitLens: Reset > Approved Avatar URL Templates..._) ([#302](https://github.com/gitkraken/vscode-gitlens/issues/302), [#5155](https://github.com/gitkraken/vscode-gitlens/pull/5155)) &mdash; thanks to [PR [#1636](https://github.com/gitkraken/vscode-gitlens/issues/1636)](https://github.com/gitkraken/vscode-gitlens/pull/1636) by Tmk ([@tmkx](https://github.com/tmkx))
+- Adds the ability to stash or copy a patch of only the selected files from the working tree (WIP) file list in the _Inspect_ and _Commit Graph_ views &mdash; selecting 2+ files retargets the _Stash_ and _Copy (Patch)_ toolbar buttons to the selection, with the whole-scope action available by holding Alt, plus a matching multi-select _Copy Changes (Patch)_ context menu command ([#5384](https://github.com/gitkraken/vscode-gitlens/issues/5384))
+- Adds _Open Changes_, _Open Staged Changes_, and _Open Unstaged Changes_ options for working tree files that have both staged and unstaged changes in the _Inspect_ and _Commit Graph_ views &mdash; a partially-staged file appears as a single row but you can now open its staged-only, unstaged-only, or combined diff from the context menu ([#5385](https://github.com/gitkraken/vscode-gitlens/issues/5385))
+- Adds a working tree change count badge to the _Commit Graph_ view &mdash; mirrors the _Source Control_ view by showing the number of working tree changes on the GitLens panel tab, even while the panel is collapsed; controllable via the new `gitlens.graph.showWorkingTreeBadge` setting ([#5383](https://github.com/gitkraken/vscode-gitlens/issues/5383))
+- Adds an _Open in Integrated Terminal_ option for worktrees in the _Commit Graph_ and the _Worktrees_ view &mdash; opens the selected worktree's folder in the integrated terminal, matching the action already available for repositories and folders ([#5386](https://github.com/gitkraken/vscode-gitlens/issues/5386))
+- Adds a _Reveal in Explorer View_ option for working tree (WIP) files in the _Inspect_ and _Commit Graph_ views &mdash; right-click a staged, unstaged, or conflicted working file to reveal and select it in VS Code's Explorer view ([#5387](https://github.com/gitkraken/vscode-gitlens/issues/5387))
+- Adds _Focus on Branch_, _Focus on Worktree_, and _Solo Branch_ options to the _Commit Graph_ &mdash; right-click a branch or worktree in the side bar (or a graph row) to focus the graph and minimap on it, and right-click a working tree (WIP) row to focus or solo the graph on that worktree's branch ([#5388](https://github.com/gitkraken/vscode-gitlens/issues/5388))
+- Adds manual take-side fallbacks and conflict-type labels to the AI **Resolve** mode in the _Commit Graph_ WIP details panel &mdash; conflicts the AI can't auto-merge (binary, symlink, submodule, file-mode, add/add, and rename/rename or rename/delete conflicts) are now labeled by type and offer inline _Take Current_, _Take Incoming_, and _Delete_ actions instead of dead-ending as "needs review"; resolving a rename/rename conflict also removes the other side's renamed file. Also decodes UTF-16/BOM-encoded files so their conflicts can be resolved rather than skipped ([#5393](https://github.com/gitkraken/vscode-gitlens/issues/5393))
+- Adds a commit signing indicator to the _Commit Graph_'s working changes (WIP) commit box &mdash; a key icon appears when commits will be signed (via the repo's `commit.gpgsign` Git config or VS Code's `git.enableCommitSigning` setting), with the signing format (GPG, SSH, X.509, or OpenPGP) shown on hover
+- Adds a _Start Review with an Agent_ action to _Launchpad_ pull request items &mdash; after selecting a pull request in the _Launchpad_, you can start an AI agent review that checks out the PR in a worktree and routes straight to the agent picker (or your default agent); available when AI features are enabled ([#5395](https://github.com/gitkraken/vscode-gitlens/issues/5395))
+- Adds a _Take your agent workflows further_ step to the _Welcome_ view walkthrough &mdash; introduces Kepler, GitKraken's Agentic Development Environment (ADE), with a _Get Kepler_ call-to-action ([#5378](https://github.com/gitkraken/vscode-gitlens/issues/5378))
+- Adds an _auto_ layout for the _Commit Graph_ details panel that positions it to the right or bottom based on the graph's width, with Alt+Click to temporarily pin a location ([#5402](https://github.com/gitkraken/vscode-gitlens/issues/5402), [#5403](https://github.com/gitkraken/vscode-gitlens/issues/5403))
+- Adds a _Copy Changes (Patch)_ action to commits and stashes in the _Inspect_ and _Commit Graph_ details &mdash; copies a patch of the entire commit or stash to the clipboard ([#5455](https://github.com/gitkraken/vscode-gitlens/issues/5455))
+- Adds per-file added/removed line counts to the working changes (WIP) file list in the _Commit Graph_ details, loaded lazily when the list is visible ([#5456](https://github.com/gitkraken/vscode-gitlens/issues/5456))
+- Adds a `gitlens.sortWorkingChangesBy` setting to sort working changes (WIP) by their Git staged/unstaged state in the _Commit Graph_ details ([#5454](https://github.com/gitkraken/vscode-gitlens/issues/5454))
+- Adds a _Resolve Conflicts in Commit Graph_ action to the interactive rebase editor's conflicted files panel &mdash; opens the _Commit Graph_ in AI **Resolve** mode for the rebase's conflicts; available when AI features are enabled ([#5413](https://github.com/gitkraken/vscode-gitlens/issues/5413))
+- Adds an _Open Changes with Working File (Worktree)_ action to the commit file menu in the _Commit Graph_ details and _Inspect_ view &mdash; compares a committed file against its working copy in the sibling worktree whose branch contains the commit (rather than the currently-scoped worktree), with a worktree picker when more than one applies
+
+### Changed
+
+- Redesigns the _GitLens Settings_ page with a modern two-pane layout &mdash; a searchable, grouped, and resizable category rail paired with a detail pane showing live, interactive previews that react to setting changes as you make them, replacing the previous single-page scroll and its static images ([#5372](https://github.com/gitkraken/vscode-gitlens/issues/5372))
+  - Search matches category names, setting labels, and literal setting names (e.g. `gitlens.currentLine.format`), scrolls the match into view, and offers an _Open in Settings UI_ escape hatch for settings not surfaced on the page; Ctrl/Cmd+F focuses the search
+  - Format string examples are rendered by the real formatter, so the preview always matches what GitLens displays
+  - Adds _Cloud Integrations_ and _AI_ categories &mdash; view and connect hosting and issue service integrations, and manage the AI provider and model, GitKraken MCP, default coding agent, and Claude Code hooks
+  - Shows connection-aware cues in the category rail &mdash; a connected/total count for _Cloud Integrations_ and a rule count for _Autolinks_
+- Changes commits created from the _Commit Graph_'s working changes (WIP) commit box to honor VS Code's `git.enableCommitSigning` setting &mdash; matching the built-in Source Control commit behavior; previously only the repo's `commit.gpgsign` Git config was respected
+- Changes GitLens AI features (_Generate Commits_, _Explain_, _Generate Pull Request_/_Changelog_, and AI-powered search) to no longer be labeled _(Preview)_, and consolidates their commands under the `gitlens.ai.*` namespace ([#5463](https://github.com/gitkraken/vscode-gitlens/issues/5463))
+- Improves the _Commit Composer_ &mdash; adds a dual commit/recompose posture, drag to reorder draft commits, drag to move one or more files between draft commits, and multi-diff _Open Changes_ actions in the curation file trees ([#5460](https://github.com/gitkraken/vscode-gitlens/issues/5460))
+- Improves AI-powered conflict resolution _(Preview)_ in the _Commit Graph_ working changes (WIP) details &mdash; adds a split-panel _Conflict Details_ sheet (current vs incoming history), resolution scoped to selected files, automatic handling of both-deleted and rename conflicts, per-file confidence indicators, collapsible resolved/pending sections with progress, and a dedicated merge icon ([#5306](https://github.com/gitkraken/vscode-gitlens/issues/5306))
+- Improves the AI _Review_ mode with follow-up conversations, plus _Discard_ and _Refine_ actions in _Compose_ and _Review_ ([#5461](https://github.com/gitkraken/vscode-gitlens/issues/5461))
+- Improves AI model display and selection across AI inputs &mdash; shows the active model as a selectable chip and surfaces consumption-rate and recommendation badges for GitKraken AI models ([#5425](https://github.com/gitkraken/vscode-gitlens/issues/5425))
+- Updates AI provider and model support &mdash; migrates Hugging Face to its OpenAI-compatible router, renames the xAI provider to SpaceXAI following its rebrand, and refreshes the model registries, adding newer models (OpenAI GPT-5.x, Anthropic Claude 5/4.x, DeepSeek V4, Gemini 3.x, and Grok 4.5/4.3) and hiding retired ones ([#5462](https://github.com/gitkraken/vscode-gitlens/issues/5462))
+- Changes the _Commit Graph_ side bar icons to switch back to the graph and open the details panel when clicked from the visualization/kanban modes, instead of being disabled ([#5401](https://github.com/gitkraken/vscode-gitlens/issues/5401))
+- Improves the working changes (WIP) bar in the _Commit Graph_ &mdash; scrolls horizontally with the mouse wheel, keeps the primary repository anchored, and hides unless a secondary worktree has changes ([#5457](https://github.com/gitkraken/vscode-gitlens/issues/5457))
+- Reorganizes the details and working changes (WIP) panel headers in the _Commit Graph_ and _Inspect_ views &mdash; groups navigation and actions into clearer clusters, folds the _Inspect_ view's separate navigation bar into the details action row, and adds branch and create context menus ([#5459](https://github.com/gitkraken/vscode-gitlens/issues/5459))
+- Improves keyboard focus and navigation in the webview tree views &mdash; each row is a single tab stop that cycles its inner controls, Space no longer double-toggles checkboxes, multi-select keyboard navigation is fixed, and checkbox focus rings are visible ([#5458](https://github.com/gitkraken/vscode-gitlens/issues/5458))
+- Changes copying changes to a worktree to no longer prompt to open that worktree afterward
+- Changes stashing to use the _Commit Graph_ working changes (WIP) commit-box draft message when one is present
+- Renames the _Open Worktree File_ action to _Open File (Worktree)_ for consistency with the new _Open Changes with Working File (Worktree)_ action
+
+### Removed
+
+- Removes the _Streamline Workflow with the Home View_ step from the _Welcome_ view walkthrough ([#5378](https://github.com/gitkraken/vscode-gitlens/issues/5378))
+- Removes the Overview (working changes) mode from the _Inspect_ view, making it commit/stash-only &mdash; reviewing working changes is now consolidated in the _Commit Graph_. Launchpad _Switch to Branch_ and _Open Details_ actions, and PR switch deep links, now open the _Commit Graph_ at the working changes (WIP) row instead of the _Inspect_ view; the Launchpad code-suggestion entry points are retired (code suggestions remain available in the _Commit Graph_) ([#5399](https://github.com/gitkraken/vscode-gitlens/issues/5399))
+- Removes the GitHub Models AI provider ([#5462](https://github.com/gitkraken/vscode-gitlens/issues/5462))
+
+### Fixed
+
+- Fixes Anthropic AI requests failing with a _400 Bad Request_ when the request includes a system message (e.g. generating or recomposing commits with the commit composer, or AI conflict resolution) &mdash; system-role messages are now hoisted into the top-level `system` parameter that Anthropic's Messages API requires, and unrecognized Anthropic errors now surface their actual message instead of a bare _Bad Request_ ([#5426](https://github.com/gitkraken/vscode-gitlens/issues/5426))
+- Fixes the coding agents integration running the GitKraken CLI during extension startup &mdash; the agent-detection probe is now deferred out of the initial render window so it no longer competes with _Commit Graph_ and _Home_ view loading, and a fresh CLI install on first launch no longer leaves the detected agents list empty for up to 5 minutes
+- Fixes creating a branch from a remote ref incorrectly setting upstream tracking when the new branch name differs from the remote branch name &mdash; e.g. creating `feature/foo` from `origin/main` no longer makes it track `origin/main`; affects _Create & Switch to Branch_, _Switch to... → Create & Switch to New Local Branch_, and _Create Branch in New Worktree_ ([#5360](https://github.com/gitkraken/vscode-gitlens/issues/5360))
+- Fixes _Keep Staged_ not keeping staged changes when stashing selected files &mdash; choosing _Keep Staged_ while stashing specific tracked files no longer drops the `--keep-index` flag, so staged changes are correctly kept intact ([#5281](https://github.com/gitkraken/vscode-gitlens/issues/5281))
+- Fixes pushing a branch that needs a force-push (e.g. after an amend or rebase) silently reporting success without updating the remote &mdash; a non-fast-forward (_tip of your current branch is behind_) rejection is now surfaced as an error instead of being swallowed as non-fatal ([#5364](https://github.com/gitkraken/vscode-gitlens/issues/5364))
+- Fixes _Fetch_, _Pull_, _Switch_, _Reset_, and _Restore_ operations silently reporting success when the underlying Git command failed with a message Git treats as a warning (e.g. an unreachable remote, or an invalid ref/revision) &mdash; these failures are now surfaced as errors instead of being swallowed as non-fatal
+- Fixes the working changes (WIP) stats tooltip in the details header duplicating the visible stats pill instead of describing the change breakdown &mdash; the tooltip now reads e.g. _1 file added, 2 files changed in the working tree_
+- Fixes a stray gap in the _Commit Graph_ header next to the fetch and sync actions when the current branch is already published &mdash; the publish action no longer reserves empty space once the branch has an upstream
+- Fixes the design of the paused-operation banner (shown during a merge, rebase, cherry-pick, or revert in the _Commit Graph_/_Inspect_ details and _Home_) &mdash; the _Continue_ action now uses a start icon, and the action buttons' hover and active states blend into the banner instead of showing a clashing grey toolbar highlight ([#5394](https://github.com/gitkraken/vscode-gitlens/issues/5394))
+- Fixes selection and folder expand/collapse state not persisting across refreshes in grouped webview tree views when identical paths appear in different groups
+- Fixes the AI input in the _Commit Graph_ details stealing keyboard focus when the panel switched modes automatically
+- Fixes the _Commit Graph_ showing an incorrect worktree count when a worktree fetch fails or is unsupported
+- Fixes the commit-message headline occasionally rendering at the wrong size before autolinks finish loading in the commit details
+- Fixes stray menu-popover styling leaking onto nested tooltips
+
+## [18.2.0] - 2026-06-15
+
+### Added
+
+- Introduces AI-powered conflict resolution (Preview) &mdash; a new **Resolve** mode in the _Commit Graph_ WIP details panel that uses AI to resolve merge, rebase, and cherry-pick conflicts ([#5306](https://github.com/gitkraken/vscode-gitlens/issues/5306))
+  - Resolves conflicted files in parallel with streamed progress, proposing a per-file resolution (merged, kept current, took incoming, deleted, or flagged as needs review) that you review as a diff before anything is applied
+  - Adds the ability to refine the whole run with a prompt, give per-file feedback to re-resolve a single file, and apply or discard the proposed resolutions
+  - Adds entry points across GitLens: a **Resolve** action on the WIP details header and the paused-operation banner, _Commit Graph_ context menus and WIP row buttons (all conflicts or selected files), the **Resolve Conflicts with AI** Command Palette command, and a **Resolve Conflict with AI** action on individual conflicted files in the sidebar views
+  - Adds clickable file links in the resolve panel that open a conflicted working-tree file so you can inspect it before resolving
+
+### Changed
+
+- Changes the working changes (WIP) details header to lead with the _Resolve_ action when conflicts are present, ahead of _Compose_, _Review_, and _Compare_
+- Updates the design and readbility of the Pro feature gates (e.g. _Commit Graph_, _Visual History_) &mdash; with an optional _Switch Repos_ action to move to a repository where the feature is available ([#5335](https://github.com/gitkraken/vscode-gitlens/issues/5335))
+- Improves the AI weekly usage-limit message with a _Get More Credits_ action to purchase additional AI credits for users who can buy credits, or guidance to contact an org admin for those who can't ([#5298](https://github.com/gitkraken/vscode-gitlens/issues/5298))
+
+## [18.1.0] - 2026-06-09
+
+### Added
+
+- Adds a `gitlens.graph.searchAutocompleteOnFocus` setting to control whether search autocomplete suggestions appear automatically when focusing or clicking the search input in the _Commit Graph_ ([#5287](https://github.com/gitkraken/vscode-gitlens/issues/5287))
+- Adds the ability to copy working changes to other opened worktrees from the _Commit Graph_ ([#5288](https://github.com/gitkraken/vscode-gitlens/issues/5288))
+- Adds the ability to discard working changes from the working changes (WIP) file list in the _Commit Graph_ and _Inspect_ view &mdash; per-file or in bulk, with safe partial discard for files that have both staged and unstaged changes (a first discard drops only the unstaged changes, preserving the staged portion) and a bulk action that switches to discarding staged changes when no unstaged changes remain ([#5296](https://github.com/gitkraken/vscode-gitlens/issues/5296))
+- Adds an _Add Co-authors_ button to the _Commit Graph_'s working changes (WIP) commit box that opens the contributor picker and appends the selected co-authors to the commit message ([#5297](https://github.com/gitkraken/vscode-gitlens/issues/5297))
+- Adds a _Copy Changes (Patch)_ button to the working changes (WIP) file list in the _Commit Graph_ and _Inspect_ view that copies a unified diff of the uncommitted changes to the clipboard &mdash; copies staged changes by default and unstaged changes on Alt-click when both are present, otherwise copies all changes ([#5302](https://github.com/gitkraken/vscode-gitlens/issues/5302))
+- Adds the ability to jump from the working changes (WIP) to its commit in the _Commit Graph_ &mdash; a down-arrow in the working changes header selects the branch tip commit the changes are based on, complementing the existing action to jump from a commit to its working changes ([#5303](https://github.com/gitkraken/vscode-gitlens/issues/5303))
+- Adds an _Undo Commit_ row adornment to the _Commit Graph_ &mdash; surfaces an inline undo button on a HEAD commit row when hovered, focused, or selected, alongside the existing context-menu action
+- Adds support for undoing the HEAD commit of any worktree from the _Commit Graph_ &mdash; the adornment and context-menu action now target the correct working tree for secondary worktrees, not just the active one (a distinct _Undo Commit on Worktree_ label makes the target clear) ([#5311](https://github.com/gitkraken/vscode-gitlens/issues/5311))
+- Adds responsive compaction to the _Commit Graph_'s side bar icon rail in short layouts &mdash; hides the count badges and tightens spacing, then folds the overflowing icons into a "…" menu (with their labels and counts) as the rail runs out of room, restoring them as it grows ([#5313](https://github.com/gitkraken/vscode-gitlens/issues/5313))
+- Adds a keyboard shortcuts reference to the _Commit Graph_ &mdash; opened from a new keyboard icon in the graph's sidebar rail &mdash; listing all supported navigation, search, open, and commit shortcuts with platform-aware key labels ([#5312](https://github.com/gitkraken/vscode-gitlens/issues/5312))
+- Adds back/forward navigation to the _Commit Graph_ details panel and _Inspect_ view &mdash; Back/Forward buttons in the commit and working changes (WIP) detail headers step back through previously-viewed commits, stashes, and working changes, best-effort re-selecting the row in the _Commit Graph_ ([#5316](https://github.com/gitkraken/vscode-gitlens/issues/5316))
+- Adds the ability to push up to (and including) a specific commit from the _Commit Graph_ &mdash; commits ahead of the branch's upstream show an unpushed indicator that doubles as a one-click _Push to Commit_ action, also available in the commit's context menu ([#5314](https://github.com/gitkraken/vscode-gitlens/issues/5314))
+- Adds an _Open Worktree File_ action to the commit file menu in the _Commit Graph_ details and _Inspect_ view that opens a committed file from the worktree whose branch contains the commit &mdash; useful in multi-worktree repos where the file's working copy lives outside the currently-scoped worktree, with a worktree picker when more than one worktree applies ([#5317](https://github.com/gitkraken/vscode-gitlens/issues/5317))
+- Adds a working changes bar to the _Commit Graph_ &mdash; a horizontal bar above the graph with a pill for each worktree that has uncommitted changes or unpushed commits (primary and secondary worktrees alike), showing its branch and agent status, with an up-arrow (↑) marking unpushed work and a hover breakdown of changed files and commits to push; clicking a pill reveals and selects that worktree's working changes in the graph and opens its details ([#5301](https://github.com/gitkraken/vscode-gitlens/issues/5301))
+- Adds heat decay, read/edit color blending, and a live pulse to the experimental _Agent Activity Treemap_ &mdash; touched files now fade over a configurable window after each tool call instead of switching on and off, reads and edits blend as cyan/amber weighted by recency, and a soft pulse marks the file an agent is reading or editing right now
+  - Adds a `gitlens.graph.experimental.visualizations.activityDecay` setting (30 seconds to 30 minutes, default 5 minutes) with a matching decay-window picker in the treemap toolbar
+  - Rolls sub-agent file activity up to the parent session so the heatmap reflects what a session's sub-agents are reading and editing
+- Adds the ability to squash multiple commits from the _Commit Graph_ &mdash; select two or more contiguous commits on the current branch, right-click, and choose _Squash Commits_ to combine them into one, then review and edit the combined commit message (or keep only the oldest commit's message) ([#5161](https://github.com/gitkraken/vscode-gitlens/issues/5161))
+- Adds the ability to drop multiple commits from the _Commit Graph_ &mdash; select commits on the current branch, right-click, and choose _Drop Commits_ to remove them ([#5161](https://github.com/gitkraken/vscode-gitlens/issues/5161))
+- Adds the ability to reword a commit's message from the _Commit Graph_ &mdash; right-click a commit on the current branch and choose _Reword Commit_ ([#5161](https://github.com/gitkraken/vscode-gitlens/issues/5161))
+- Adds a _Modify Commits (Interactive Rebase)_ action to the _Commit Graph_ that opens the interactive rebase editor scoped from the selected commit(s) for squashing, rewording, reordering, dropping, and editing ([#5161](https://github.com/gitkraken/vscode-gitlens/issues/5161))
+- Adds a _Publish Branch_ action to the _Commit Graph_ header that appears when the current branch has no upstream &mdash; publishes (pushes and sets the upstream of) the current branch in one click, sitting just left of _Fetch_ and collapsing to its icon when the header is too narrow ([#5327](https://github.com/gitkraken/vscode-gitlens/issues/5327))
+- Adds the ability to multi-select files in the _Commit Graph_ details and _Inspect_ view to act on several at once &mdash; Ctrl/Cmd+click to toggle, Shift+click for a range, and Ctrl/Cmd+A to select all &mdash; with batch actions from the context menu and toolbar: open files, open selected changes (multi-diff), open on remote, copy paths and relative paths, and (for working changes) stage, unstage, stash, and discard ([#5328](https://github.com/gitkraken/vscode-gitlens/issues/5328))
+- Adds a `gitlens.advanced.repositorySearch.enabled` setting to control whether GitLens scans workspace folders to discover Git repositories &mdash; when disabled, GitLens relies solely on VS Code's built-in Git/SCM integration to report when repositories are opened or closed
+- Adds the ability to stash only the staged changes from the working changes (WIP) file list in the _Commit Graph_ and _Inspect_ view &mdash; when both staged and unstaged changes are present, the _Stash_ action stashes only the staged changes by default (Alt-click to stash all)
+
+### Changed
+
+- Improves shadow and elevation consistency across GitLens webviews &mdash; dialogs, popovers, tooltips, dropdowns, autocompletes, and panels now derive their shadows from a shared, theme-reactive elevation scale, and elevated surfaces show a border in high-contrast themes (where box-shadows don't render) so they stay clearly separated from the content behind them
+- Improves graph selection reliability and performance
+- Honors VS Code's `scm.defaultViewSortKey` setting when sorting working changes (WIP) file lists in the _Commit Graph_, while keeping unresolved conflicts at the top ([#5289](https://github.com/gitkraken/vscode-gitlens/issues/5289))
+- Changes the _Add as Co-author_ action in the _Commit Graph_ to append the co-author to the graph's working changes (WIP) commit message box instead of writing to the Source Control input and switching to the Source Control view ([#5294](https://github.com/gitkraken/vscode-gitlens/issues/5294))
+- Improves _Commit Graph_ update performance by skipping redundant re-renders when content is structurally unchanged
+- Improves performance in large workspaces by only watching a repository's working tree while its node is expanded in the views
+- Improves resilience of GitHub requests by retrying transient gateway and network failures (502, 503, 504) with exponential backoff, restricted to idempotent reads
+- Improves commit feedback and error handling when committing working changes (WIP) in the _Commit Graph_ &mdash; locks inputs with a spinner during commits and surfaces classified, actionable errors for signing, pre-commit hook, and conflict failures ([#5290](https://github.com/gitkraken/vscode-gitlens/issues/5290))
+- Improves how partially staged (mixed) files are counted and displayed in the _Commit Graph_ file tree badges ([#5291](https://github.com/gitkraken/vscode-gitlens/issues/5291))
+- Improves resilience when VS Code updates GitLens in the background &mdash; surfaces an actionable _Reload Window_ prompt when a lazily-loaded feature can no longer be found, instead of a cryptic error
+- Changes the _Apply Stash_ command labels to _Apply / Pop Stash_ across the command palette, view context menus, _Commit Graph_, and tooltips to clarify that both apply and pop are available
+
+### Fixed
+
+- Fixes opening the _Commit Graph_ in multi root workspace to the correct repo ([#5276](https://github.com/gitkraken/vscode-gitlens/issues/5276))
+- Fixes commit signing not being detected as enabled when only VS Code's `git.enableCommitSigning` setting is on (without `commit.gpgsign` set in Git config) &mdash; GitLens-driven commits (e.g. the _Commit Composer_) now sign in this case
+- Fixes the `gitlens.advanced.similarityThreshold` setting being ignored when computing Git status &mdash; rename detection in status, working changes (WIP), and stash file lists used Git's default threshold (50%) instead of the configured value
+- Fixes the `gitlens.advanced.similarityThreshold` setting being ignored when listing changed files for a diff &mdash; rename detection used Git's default threshold (50%) instead of the configured value
+- Fixes force push from the _Push_ command always using `--force-with-lease` (and `--force-if-includes`) and ignoring VS Code's `git.useForcePushWithLease` and `git.useForcePushIfIncludes` settings &mdash; the confirmation could offer a plain `--force` while GitLens still pushed with lease; it now honors the configured preference
+- Fixes _Stash Unstaged Changes_ also stashing staged changes when an untracked file is involved &mdash; including untracked files no longer drops the `--keep-index` flag, so staged changes are correctly kept intact ([#5281](https://github.com/gitkraken/vscode-gitlens/issues/5281))
+- Fixes push from the _Commit Graph_ silently pushing to a wrong remote branch when the local branch tracks a differently-named upstream (e.g., `feature/foo` tracking `origin/main`) &mdash; now correctly pushes to the configured upstream branch instead of creating a new remote branch ([#5304](https://github.com/gitkraken/vscode-gitlens/issues/5304))
+- Fixes the working changes (WIP) _Generate Commit Message_ in the _Commit Graph_ losing its result when the selection changes while a message is generating &mdash; the generation now continues and the message lands in the originating worktree's commit input (or its saved draft if you've navigated away) ([#5295](https://github.com/gitkraken/vscode-gitlens/issues/5295))
+- Fixes the commit details metadata bar in the _Commit Graph_ and _Inspect_ view not surfacing a reachable tag when a commit is contained only in tags (and not any branch) &mdash; now shows the most relevant tag with a tag icon and color, matching how branches are shown ([#5293](https://github.com/gitkraken/vscode-gitlens/issues/5293))
+- Fixes incorrect GitLab avatars being shown when multiple GitLab users share the same name ([#2205](https://github.com/gitkraken/vscode-gitlens/issues/2205))
+- Fixes the repository picker being incorrectly skipped when an action targets a repository that isn't surfaced in VS Code &mdash; for example, using the stash action on a secondary worktree's working changes when that worktree isn't open in VS Code ([#5292](https://github.com/gitkraken/vscode-gitlens/issues/5292))
+- Fixes potential runtime errors when formatting invalid or unparseable dates ([#4922](https://github.com/gitkraken/vscode-gitlens/issues/4922))
+- Fixes an issue where unchecking _Interactive Rebase Editor_ in the GitLens settings UI would not persist &mdash; the checkbox would revert to checked after changing another setting or reopening the settings UI ([#5277](https://github.com/gitkraken/vscode-gitlens/issues/5277))
+- Fixes an issue where the GitKraken CLI was not auto-installed on hosts where MCP auto-registration is unsupported (older VS Code, Windsurf, JetBrains, Trae, Kiro, Zed, etc.), preventing Claude hooks installation and agent dispatch in _Start Work_ and _Start PR Review_ flows ([#5280](https://github.com/gitkraken/vscode-gitlens/issues/5280))
+- Fixes the _Commit Graph_ intermittently flashing a "No commits" message during concurrent Git operations
+- Fixes styling in rendered markdown (commit message hovers, autolinks, and details) being stripped in webviews by the stricter content-security policy introduced in v18.0.0
+- Fixes the `gitlens.advanced.skipOnboarding` setting not being honored, so onboarding surfaces could still appear even when it was enabled
+- Fixes the _Commit Graph_ details panel showing stale working changes after the view regains visibility ([#5322](https://github.com/gitkraken/vscode-gitlens/issues/5322))
+
+## [18.0.0] - 2026-05-27
+
+### Added
+
+- Introduces an all-new _Commit Graph_ experience &mdash; a comprehensive redesign that pulls commit inspection, AI workflows, comparisons, branch focus, and working-change management directly into the graph
+  - Adds an embedded details panel &mdash; replaces the standalone Graph Details view with an integrated panel that handles commit details, working changes, branch comparisons, AI reviews, and commit composition without leaving the graph
+    - Adds a `gitlens.graph.details.location` setting to anchor the details panel at the bottom or right, with Alt+click on the details button to toggle
+  - Adds an integrated AI Compose mode &mdash; provides a much improved AI-powered commit composition directly within the graph, with per-commit include/exclude toggles, multi-diff editor support, a virtual filesystem provider for synthesized per-commit diffs, cancellable generation, parallel/background operation, and copy and send-to-agent actions
+    -Adds an integrated AI Code Review mode &mdash; surfaces severity-tagged findings with tooltips, copy and send-to-agent actions on outputs, and PR/issue/autolink context input ([#5235](https://github.com/gitkraken/vscode-gitlens/issues/5235))
+  - Adds an integrated Compare mode &mdash; opens comparisons directly inside the graph instead of the _Search & Compare_ view, with Ahead/Behind/All Files tabs, working tree comparisons for peer worktrees, AI-powered explaination and changelog generation, and an _Open in Search & Compare_ action to persist ad-hoc comparisons
+  - Adds a refined header with WIP (work-in-progress) status and stash action
+  - Adds a unified UI/UX for scoping and filtering the graph
+    - Adds an _Agent Branches_ option to filter the graph to show only the branches or worktrees with active or recent agent activity
+    - Adds a _Focus Branch_ option to scope the graph to just the changes on specific branch via a new branch selector (or the new Overview or Agents side bar), with merge-target anchoring
+  - Adds all new experiences to the graph _Side Bar_
+    - Adds pinned and overlay modes &mdash; overlay mode floats over the graph instead of pushing it aside, with auto-collapse on focus loss and a pin/unpin toggle in the panel header
+    - Adds an _Overview_ side bar panel &mdash; surfaces active and recent branches as rich cards with WIP stats, upstream tracking, associated pull requests, issues, and agents, as well as quick actions and rich hover details
+      - Clicking on an _Overview_ card instantly focuses (scopes) the graph to just the changes on the selected branch
+    - Adds an _Agents_ side bar panel &mdash; surfaces active and recent agents with their activity, associated branches/worktrees
+      - Clicking on an agent row instantly focuses (scopes) the graph to just the changes on the selected wokrtree, and selects the agent in the details panel
+    - Adds a _Visualizations_ mode to the side bar &mdash; houses the all-new _Visual History_, and 3 experimental treemap visualizations
+      - _Visual History_ &mdash; rebuilt from the ground up to provide a better experience with dynamical loading and dealing with many contributors and/or branches
+      - _Files Treemap_ &mdash; an experimental spatial visualization of file layout within the repository color coded by file type, with hover tooltips, deep zoom-to-folder, and tracking breadcrumbs
+      - _Commits Treemap_ &mdash; an experimental spatial visualization of commit activity within the repository colorized as a heatmap
+      - _Agent Activity Treemap_ &mdash; an experimental spatial visualization of realtime agent activity. See where your agents are currently reading and editing across your repository
+    - Adds an experimental _Agent Kanban_ mode to the side bar &mdash; an interactive Kanban board grouping active agent sessions by state (Working, Idle, Inactive, Needs Input), with inline plan view and permission approval directly from session cards
+    - Adds comprehensive context menu support for worktrees in the sidebar and Commit Graph &mdash; brings feature parity with branches, including Reveal in File Explorer, AI-powered actions (explain WIP, generate changelog), Open in Terminal, and Copy Path
+  - Adds an all new way to manage worktrees and working changes (WIP)
+    - Changes working changes (WIP) rows to always be visible regardless of whether or not there are uncommitted changes
+      - When there are uncommitted changes, the _Details Panel_ now allows you to review, stage, and commit your changes, or leverage the all-new _Compose_ and _Review_ modes to have AI review and automatically compose your changes into a set of well-structured commits
+      - When there are no uncommitted, the _Details Panel_ transforms into a hub to guide you to the next steps &mdash; like pulling, pushing, drafting a PR, reviewing, recomposing, etc. Everything to help you get your changes merged faster ([#5218](https://github.com/gitkraken/vscode-gitlens/issues/5218))
+    - Adds support for working changes (WIP) rows from secondary worktrees
+      - Selecting a WIP rows provides file actions, conflict resolution, and live-updating stats for non-active worktrees, plus _Open in Integrated Terminal_ and _Open Worktree in New Window_ actions on the header
+    - Adds the ability to discard uncommitted changes
+    - Adds smart push/pull on the WIP details panel header &mdash; offers Force Push when a branch is both ahead and behind its remote
+    - Adds conflict resolution actions to the WIP details panel
+    - Adds the ability to share working changes as a Cloud Patch directly from the WIP header
+    - Adds persistence of in-progress commit messages and amend state per worktree &mdash; drafts are restored when switching contexts, the original message is restored on Undo Commit, and per-worktree search box and filter preferences persist across sessions
+    - Adds Jump to Working Changes &mdash; quickly navigate from the selected commit to the most relevant WIP node in the same lane, with primary-worktree fallback
+    - Adds bulk staging operations &mdash; _Stage All_ and _Unstage All_, with Alt-click on mixed-state checkboxes to unstage all currently staged items
+  - Adds auto-fetch while the _Commit Graph_ is visible and focused, yielding to VS Code's built-in Git auto-fetch when enabled, with a fetch button popover to manage settings and a minimum interval floor to prevent excessive fetching
+  - Adds search and filtering improvements &mdash; adds a `type:wip` operator to filter to working changes, and column header filters with interactive pickers for authors, refs, and files
+  - Adds the ability to pin and unpin branches &mdash; pinned branches persist across sessions with a jump-to-pinned-branch actionn ([#5139](https://github.com/gitkraken/vscode-gitlens/issues/5139), [#5181](https://github.com/gitkraken/vscode-gitlens/issues/5181))
+  - Adds inline row actions for commit and stash rows including open all changes (Alt to compare against working tree) and apply/drop stashes
+  - Adds a floating "HEAD" indicator to the graph to quickly jump to the HEAD commit
+  - Adds a completely rebuilt minimap with better performance and zoom controls and clearer markers
+  - Adds minimap and scrollbar markers for worktrees &mdash; surfaces uncommitted changes on the minimap and scrollbar with a configurable theme color and a toggle setting
+  - Adds an _Open in New Window_ toolbar view action &mdash; opens the graph in a detached window for multi-monitor workflows, with _Open in Editor_ available as the Alt+click alternative
+- Adds comprehensive AI agent integration throughout GitLens
+  - Adds an agent status framework with Claude Code support using Claude Code Hooks (must be installed) &mdash; surfaces sessions across the _Home_ view, _Commit Graph_ overview cards ([#5170](https://github.com/gitkraken/vscode-gitlens/issues/5170)), WIP rows, _Commit Details_, _Agents_ side bar panel, and the experimental _Agent Kanban_ mode
+  - Adds an _Agent Branches_ visibility mode to the _Commit Graph_ that filters branches to only those with active or recently active agents
+  - Adds an agent picker to _Start Work_ and _Start Review_ flows, plus a default-agent picker, _Switch Default Agent_ command, and Start Work/Start Review in Agent actions in the _Home_ and _Commit Graph_ views
+  - Adds support for opening agent sessions hosted in other VS Code windows
+  - Adds a _Resume in Terminal_ fallback when an agent session fails to open or is active in another VS Code window
+  - Adds notifications for peer-discovered agent session permissions
+  - Adds an experimental _Agent Kanban_ mode &mdash; an interactive Kanban board grouping active agent sessions by state
+- Adds conflict resolution actions to the _Interactive Rebase_ editor conflict file list
+- Adds a close-tab warning banner to the _Interactive Rebase_ editor &mdash; displays a dismissible informational banner during the planning phase to clarify that closing the tab automatically starts the rebase ([#5123](https://github.com/gitkraken/vscode-gitlens/issues/5123))
+- Adds a `gitlens.rebaseEditor.openBehavior` setting to control where the _Interactive Rebase_ editor opens when automatically reopened on a paused rebase &mdash; `auto` (default) opens beside only when a multi-pane layout already exists; `beside` always opens in a side group
+- Adds Seti file icon theme support for webviews &mdash; files in webview trees now display the correct Seti glyph
+- Adds folder actions in _Details Panel_ and _Inspect_ view
+- Adds a unified onboarding reset command that consolidates the previous Banners and Usage Tracking resets into a single restore-first-time-experience action
+
+### Changed
+
+- Switches the _Commit Graph_ sidebar to be visible by default for new installations in overlay mode
+- Switches _Open Worktree in New Window_ to be the primary action and _Open Worktree_ to be the alternative across views and the _Commit Graph_
+- Improves the default _Interactive Rebase_ editor density to a more spacious layout
+- Improves _Commit Graph_ performance and responsiveness &mdash; content-fingerprint deduping of full-state pushes, incremental row-stats sending, avatar omission for unchanged rows, in-memory WIP caches, and debounced repository event coalescing
+- Improves branch overview enrichment performance &mdash; tiered caching using stored merge targets as cache keys, lazy loading, and parallelized metadata fetches
+- Improves Git diff performance &mdash; switches diff operations to `numstat`+`summary` instead of `name-status` parsing
+- Improves Git command result caching &mdash; granular TTLs based on ref mutability (5-minute cache for full SHAs, 60-second failsafe for symbolic refs), plus caching for left-right commit counts, merge bases, and per-branch config lookups
+- Improves performance for GitHub virtual repositories &mdash; adds caching for commit details, counts, merge bases, paged branches/tags, and default branches, plus deduping of in-flight GraphQL requests
+- Improves the _Commit Graph_ minimap colors and contrast for better theme accessibility, and adds out-of-view proxy handles and improved scope zoom rendering
+- Improves the _Connect More Agents_ picker to only show agents that don't already have the GitKraken MCP installed, with a clearer empty state when all detected agents are already connected ([#5142](https://github.com/gitkraken/vscode-gitlens/issues/5142))
+- Improves repository visibility detection with promise-based caching to prevent redundant computation
+- Improves Git command priority inference &mdash; keeps polymorphic history commands at normal priority, requires expensive full-history walks to opt into background priority
+- Improves the default and maximum limits for concurrent background Git processes
+- Improves branch comparison default target logic &mdash; automatically suggests the merge target of a branch as the default right-side reference and uses branch names instead of SHAs for stability
+- Improves stash reachability filtering &mdash; uses Git's authoritative stash metadata via the `%s` subject parsing instead of expensive parent-timestamp tracking
+- Improves AI error handling and network detection &mdash; distinguishes between "No Network" and "Unreachable" states, with automatic retry on network failures and a recursive cause-chain analysis for better diagnostics
+- Improves header and breadcrumb responsiveness across webviews &mdash; priority-based collapsing with compact icons and overflow popovers for narrow views
+- Migrates from `node-fetch` to native fetch and adopts VS Code's built-in proxy support &mdash; removes the custom `gitlens.proxy` setting in favor of standard VS Code and OS proxy settings
+- Migrates the webview component library to WebAwesome, modernizing selects, overlays, sliders, and tooltips with workspace-color-aware highlights
+
+### Fixed
+
+- Fixes an issue where starting an interactive rebase forced a split-pane layout when git paused for a `reword` &mdash; the _Interactive Rebase_ editor now opens as a hidden background tab alongside the commit message editor instead of stealing the active tab ([#5203](https://github.com/gitkraken/vscode-gitlens/issues/5203))
+- Fixes an issue where untracked files were missing from the _Compare Working Tree with..._ file list unless manually staged with `git add -N` first ([#5158](https://github.com/gitkraken/vscode-gitlens/issues/5158))
+- Fixes an issue where the _Interactive Rebase_ editor would auto-open during the brief teardown window after a rebase completed (or on non-interactive rebases), showing stale or empty state ([#5217](https://github.com/gitkraken/vscode-gitlens/issues/5217))
+- Fixes an issue where the _Interactive Rebase_ editor would show a blank state when opened on a repository outside the workspace (e.g., from a terminal) ([#5229](https://github.com/gitkraken/vscode-gitlens/issues/5229))
+- Fixes an issue where the terminal integration relaunch warning persisted due to stale environment variable state ([#4977](https://github.com/gitkraken/vscode-gitlens/issues/4977))
+- Fixes an issue where MCP reinstallation could fail when the proxy binary was locked on Windows ([#5126](https://github.com/gitkraken/vscode-gitlens/issues/5126))
+- Fixes an issue where stashing staged changes was not using the `--staged` flag ([#5138](https://github.com/gitkraken/vscode-gitlens/issues/5138))
+- Fixes an issue where the currently selected option is not visually distinguishable in select-style menus on the _Home_ view (agent workspace filter, recent timeframe filter) and elsewhere (_Visual History_ period menu, _Commit Graph_ overview filter) &mdash; most noticeable on light themes ([#5259](https://github.com/gitkraken/vscode-gitlens/issues/5259))
+- Fixes an issue where diff hunks could be missing for renamed or copied files in editor gutters and hovers &mdash; rename detection was inadvertently filtering out valid diffs
+- Fixes an issue where stash apply and pop actions could fail silently due to missing stash numbers, producing invalid `stash@{undefined}` references, and where the _Commit Graph_ would not refresh when a stash was dropped
+- Fixes an issue where GitLens would automatically re-open repositories that the user had explicitly closed via the SCM interface
+- Fixes an issue where the _File History_ context menu actions on commits and folders launched a standalone editor instead of integrating with the embedded _Visual History_ in the _Commit Graph_
+- Fixes an issue where the SCM grouped views could intermittently "detach" &mdash; alt commands have been removed from SCM grouped views due to flakey/sticky alt detection in VS Code
+- Fixes an issue where the _Compare Working Tree_ "Show All Diffs" button used inverted diff direction
+- Fixes an issue where authentication errors could surface noisy notifications and break-on-exception breakpoints instead of returning safe defaults
+- Fixes various race conditions and stale-state issues across the _Commit Graph_ during repository, branch, and worktree switches &mdash; including phantom anchors after removing the last secondary worktree, cross-repo data contamination during rapid swaps, lost state notifications during in-flight updates, and forced reloads during panel restoration
+- Fixes an issue where the working tree comparison could incorrectly include untracked files for revision-range diffs
+
+## [17.12.2] - 2026-04-22
+
+### Fixed
+
 - Fixes an issue where newlines in commit messages were not rendered in hovers and tooltips, collapsing multi-line commit bodies onto a single line &mdash; regression in v17.12.0 ([#5157](https://github.com/gitkraken/vscode-gitlens/issues/5157))
 - Fixes an issue where the status bar blame does not appear after updating to v17.12.0+ &mdash; regression in v17.12.0 ([#5160](https://github.com/gitkraken/vscode-gitlens/issues/5160))
 - Fixes an issue where commit tooltips and hovers can render with corrupted tokens (literal `__` around the author, missing mailto links, missing italic wrappers on dates, stale token suffixes) when an async formatter call is interleaved by a concurrent formatter call &mdash; async template resolution now uses a fresh formatter instance so in-flight token resolution can't be poisoned by a reset from another call
@@ -67,7 +523,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where VS Code would switch to the _Source Control_ sidebar and reveal the _GitLens_ view on every restart or project change ([#5082](https://github.com/gitkraken/vscode-gitlens/issues/5082))
 - Fixes the _Worktrees_ view showing a misleading 'upgrade your Git' message when opening a virtual GitHub repository ([#5056](https://github.com/gitkraken/vscode-gitlens/issues/5056))
 - Fixes provider id mismatch for cloud-connected self-hosted integrations ([#5031](https://github.com/gitkraken/vscode-gitlens/issues/5031))
-- Fixes an issue where the _Launchpad_ in the _Home_ view, status bar indicator, MCP tools, and _Start Review_ would fail to show any pull requests when one integration provider had an authentication failure — now shows partial results with a warning indicator ([#5062](https://github.com/gitkraken/vscode-gitlens/issues/5062), [#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
+- Fixes an issue where the _Launchpad_ in the _Home_ view, status bar indicator, MCP tools, and _Start Review_ would fail to show any pull requests when one integration provider had an authentication failure &mdash; now shows partial results with a warning indicator ([#5062](https://github.com/gitkraken/vscode-gitlens/issues/5062), [#4492](https://github.com/gitkraken/vscode-gitlens/issues/4492))
 - Fixes an issue in the _Home_ view where branches checked out in the default worktree showed "Switch to Branch..." instead of "Open Worktree" ([#5105](https://github.com/gitkraken/vscode-gitlens/issues/5105))
 - Fixes an issue where the _Switch_ command failed to redirect to opening a worktree when the target branch was checked out in the default worktree
 - Fixes an issue where stray `.git` directories were created in sub-folders when opening a sub-folder of a repository ([#5080](https://github.com/gitkraken/vscode-gitlens/issues/5080))
@@ -84,7 +540,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Removed
 
-- Removes the _Open File_ action when diffing staged new files — VS Code introduced a duplicate action in 1.106.0 ([#5081](https://github.com/gitkraken/vscode-gitlens/issues/5081))
+- Removes the _Open File_ action when diffing staged new files &mdash; VS Code introduced a duplicate action in 1.106.0 ([#5081](https://github.com/gitkraken/vscode-gitlens/issues/5081))
 
 ## [17.11.1] - 2026-03-11
 
@@ -255,24 +711,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Select for Compare_ and _Compare with Selected_ commands to the _Commit Graph_ context menu for commits, stashes, branches, and tags ([#4779](https://github.com/gitkraken/vscode-gitlens/issues/4779))
   - Enhances multiselect behavior with improved keyboard and mouse support
     - Keyboard navigation
-      - <kbd>Arrow[Up|Down]</kbd> — Moves focus/selection to previous/next row
-      - <kbd>Ctrl+Arrow[Up|Down]</kbd> (<kbd>Cmd+Arrow[Up|Down]</kbd> on macOS) — Moves focus/selection topologically
-      - <kbd>Alt+Arrow[Up|Down]</kbd> — Jumps to previous/next branching point (merge/fork)
-      - <kbd>Alt+Page[Up|Down]</kbd> — Jumps to previous/next commit with refs
-      - <kbd>Home</kbd>, <kbd>End</kbd> — Jumps to first/last (loaded) commit
-      - <kbd>Page[Up|Down]</kbd> — Jumps by a page (viewport)
+      - <kbd>Arrow[Up|Down]</kbd> &mdash; Moves focus/selection to previous/next row
+      - <kbd>Ctrl+Arrow[Up|Down]</kbd> (<kbd>Cmd+Arrow[Up|Down]</kbd> on macOS) &mdash; Moves focus/selection topologically
+      - <kbd>Alt+Arrow[Up|Down]</kbd> &mdash; Jumps to previous/next branching point (merge/fork)
+      - <kbd>Alt+Page[Up|Down]</kbd> &mdash; Jumps to previous/next commit with refs
+      - <kbd>Home</kbd>, <kbd>End</kbd> &mdash; Jumps to first/last (loaded) commit
+      - <kbd>Page[Up|Down]</kbd> &mdash; Jumps by a page (viewport)
     - Mouse selection
-      - <kbd>Click</kbd> — Selects a single commit (clears previous selection)
-      - <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) — Toggles commit in/out of selection
+      - <kbd>Click</kbd> &mdash; Selects a single commit (clears previous selection)
+      - <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) &mdash; Toggles commit in/out of selection
         - When in topological selection mode, will only select the commit if it is topologically connected to the existing selection
-      - <kbd>Shift+Click</kbd> — Selects a range of commits from the anchor to clicked commit
+      - <kbd>Shift+Click</kbd> &mdash; Selects a range of commits from the anchor to clicked commit
         - When in topological selection mode, will select all commits that follows parent-child graph path
         - When in non-topological mode, will select all rows in visual range
     - Keyboard selection
-      - <kbd>Shift+[Up|Down]</kbd> — Extends the selection, based on selection mode
-      - <kbd>Ctrl+Shift+[Up|Down]</kbd> (<kbd>Cmd+Shift+[Up|Down]</kbd> on macOS) — Topologically extends the selection, and sticks to current branch if possible
-      - <kbd>Shift+Home</kbd>, <kbd>Shift+End</kbd> — Extends the selection to first or last commit
-      - <kbd>Shift+Page[Up|Down]</kbd> — Extends the selection by one page
+      - <kbd>Shift+[Up|Down]</kbd> &mdash; Extends the selection, based on selection mode
+      - <kbd>Ctrl+Shift+[Up|Down]</kbd> (<kbd>Cmd+Shift+[Up|Down]</kbd> on macOS) &mdash; Topologically extends the selection, and sticks to current branch if possible
+      - <kbd>Shift+Home</kbd>, <kbd>Shift+End</kbd> &mdash; Extends the selection to first or last commit
+      - <kbd>Shift+Page[Up|Down]</kbd> &mdash; Extends the selection by one page
 - Adds an all-new, highly performant, _Interactive Rebase Editor_ with support for `update-ref` other rebase operations ([#4813](https://github.com/gitkraken/vscode-gitlens/issues/4813), [#4405](https://github.com/gitkraken/vscode-gitlens/issues/4405), [#4383](https://github.com/gitkraken/vscode-gitlens/issues/4383), [#4160](https://github.com/gitkraken/vscode-gitlens/issues/4160), [#4148](https://github.com/gitkraken/vscode-gitlens/issues/4148), [#4032](https://github.com/gitkraken/vscode-gitlens/issues/4032), [#3897](https://github.com/gitkraken/vscode-gitlens/issues/3897), [#3866](https://github.com/gitkraken/vscode-gitlens/issues/3866), [#3815](https://github.com/gitkraken/vscode-gitlens/issues/3815), [#3393](https://github.com/gitkraken/vscode-gitlens/issues/3393), [#3337](https://github.com/gitkraken/vscode-gitlens/issues/3337), [#3310](https://github.com/gitkraken/vscode-gitlens/issues/3310))
   - Optimizes performance with virtualization for large rebase operations and lazy-loading of commit metadata
   - Adds ability to recompose commits using AI ([#4796](https://github.com/gitkraken/vscode-gitlens/issues/4796), [#4775](https://github.com/gitkraken/vscode-gitlens/issues/4775))
@@ -478,7 +934,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds the GitKraken MCP for Git and integration enhanced AI chat workflows — [learn more](https://help.gitkraken.com/mcp/mcp-getting-started/)
+- Adds the GitKraken MCP for Git and integration enhanced AI chat workflows &mdash; [learn more](https://help.gitkraken.com/mcp/mcp-getting-started/)
   - Leverage Git and your integrations (issues, PRs, etc) to provide context and perform actions in AI chat
 - Adds rich Linear integration with autolinks, start work, Launchpad, and more ([#4543](https://github.com/gitkraken/vscode-gitlens/issues/4543), [#4579](https://github.com/gitkraken/vscode-gitlens/issues/4579))
 - Adds support for the [GitKraken Student plan](https://www.gitkraken.com/github-student-developer-pack-bundle)
@@ -501,7 +957,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds new [_Commit Composer_ view experience](https://github.com/gitkraken/vscode-gitlens/discussions/4530 'Learn more') — the next evolution of the [initial Commit Composer preview](https://github.com/gitkraken/vscode-gitlens/discussions/4408)
+- Adds new [_Commit Composer_ view experience](https://github.com/gitkraken/vscode-gitlens/discussions/4530 'Learn more') &mdash; the next evolution of the [initial Commit Composer preview](https://github.com/gitkraken/vscode-gitlens/discussions/4408)
   - Transforms the automatic commit process into a comprehensive drafting and review experience
   - Adds ability to preview changes before committing and iterate by regenerating individual messages or entire commit compositions
   - Adds support for switching between different AI models during composition
@@ -1124,7 +1580,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - When toggled while searching the graph, it will be filtered to show only commits matching the search query
 - Adds and expands AI support for GitLens' AI features, now out of experimental and in preview
   - Refines and improves commit message generation and explaining changes, through better prompting and context
-  - Adds new model support from GitHub Copilot when installed — no api key needed
+  - Adds new model support from GitHub Copilot when installed &mdash; no api key needed
   - Adds the latest OpenAI and Claude models
   - Adds new models from xAI, GitHub Models, and HuggingFace
 - Adds a new _Launchpad_ view, now out of experimental mode &mdash; closes [#3615](https://github.com/gitkraken/vscode-gitlens/issues/3615):
@@ -4153,7 +4609,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds better tooltips for file revisions (`gitlen://` uris) — includes the commit id
+- Adds better tooltips for file revisions (`gitlen://` uris) &mdash; includes the commit id
 - Adds an _Open Revision from Branch or Tag..._ (`gitlens.openFileRevisionFromBranch`) command to open the revision of the current file from the selected branch &mdash; closes [#646](https://github.com/gitkraken/vscode-gitlens/issues/646)
 
 ### Fixed
@@ -6818,7 +7274,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...HEAD
+[19.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...gitkraken:v19.0.1
+[19.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...gitkraken:v19.0.0
+[18.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...gitkraken:v18.3.0
+[18.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.1.0...gitkraken:v18.2.0
+[18.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.0.0...gitkraken:v18.1.0
+[18.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.2...gitkraken:v18.0.0
+[17.12.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.1...gitkraken:v17.12.2
+[17.12.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.0...gitkraken:v17.12.1
 [17.12.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.1...gitkraken:v17.12.0
 [17.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.11.0...gitkraken:v17.11.1
 [17.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.10.2...gitkraken:v17.11.0

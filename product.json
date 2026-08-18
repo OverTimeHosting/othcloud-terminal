@@ -161,8 +161,7 @@
 		"completionsAdvancedSetting": "github.copilot.advanced",
 		"completionsEnablementSetting": "github.copilot.enable",
 		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
-		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
-		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry"
+		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token"
 	},
 	"trustedExtensionAuthAccess": {
 		"github": [

@@ -3999,36 +3999,5 @@ export enum KeywordRecognitionStatus {
 
 //#endregion
 
-//#region MCP
-export enum McpToolAvailability {
-	Initial = 0,
-	Dynamic = 1,
-}
-
-export class McpStdioServerDefinition implements vscode.McpStdioServerDefinition {
-	cwd?: URI;
-
-	constructor(
-		public label: string,
-		public command: string,
-		public args: string[],
-		public env: Record<string, string | number | null> = {},
-		public version?: string,
-		public metadata?: vscode.McpServerMetadata,
-	) { }
-}
-
-export class McpHttpServerDefinition implements vscode.McpHttpServerDefinition {
-	constructor(
-		public label: string,
-		public uri: URI,
-		public headers: Record<string, string> = {},
-		public version?: string,
-		public metadata?: vscode.McpServerMetadata,
-		public authentication?: { providerId: string; scopes: string[] },
-	) { }
-}
-//#endregion
-
 //#region Chat Prompt Files
 //#endregion

@@ -8,19 +8,15 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "Build & upload the full Windows x64 desktop package (~45 min)"
+        description: "Build & upload the full Windows x64 desktop package (~30 min)"
         type: boolean
         default: false
-      package_linux_reh:
-        description: "Build & upload the Linux x64 servers: REH (remote-SSH) + REH-web (browser workbench) (~45 min)"
-        type: boolean
-        default: false
-      package_linux_desktop:
-        description: "Build & upload the Linux x64 desktop app + .deb installer (~40 min)"
+      package_linux:
+        description: "Build & upload every Linux x64 artifact: REH server, REH-web (browser workbench) and the desktop .deb (~40 min)"
         type: boolean
         default: false
       release:
-        description: "Publish artifacts to a GitHub Release (requires package and/or package_linux_reh)"
+        description: "Publish artifacts to a GitHub Release (requires package and/or package_linux)"
         type: boolean
         default: false
 
@@ -86,17 +82,14 @@ jobs:
 
   compile:
     name: Compile (PR fast-fail)
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     # PR-only fast-fail: the package jobs do their own compile, so on push-to-main
-    # this job is pure waste. Skipping it saves ~30 min off the critical path.
+    # this job is pure waste. Runs on Linux rather than Windows — the check is
+    # platform-independent and Linux runners start faster.
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Pull the bump commit when one was made. Falls back to the PR head
-          # otherwise (sha is the empty string when bump-version was skipped).
-          ref: ${{ needs.bump-version.outputs.sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -140,7 +133,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
         run: npm run valid-layers-check
 
-  package:
+  package-windows:
     name: Package Windows x64
     # Run on every push to main (after bump) and on opt-in workflow_dispatch.
     if: |
@@ -152,12 +145,13 @@ jobs:
       )
     needs: [bump-version]
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     env:
       VSCODE_ARCH: x64
       npm_config_arch: x64
-      # Skip the TS->TS mangler (private-field renaming, ~5% size win for ~10 min
-      # of build time). Not worth it for a fork.
+      # Belt-and-braces: `vscode-win32-x64-min` takes the esbuild path (see
+      # build/buildConfig.ts), which never invokes the TS->TS mangler. This only
+      # matters if that path is ever switched back off.
       VSCODE_NO_MANGLE: "1"
     steps:
       - uses: actions/checkout@v4
@@ -219,7 +213,6 @@ jobs:
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
         env:
-          npm_command: "ci --prefer-offline --no-audit --no-fund"
           npm_config_prefer_offline: "true"
           npm_config_audit: "false"
           npm_config_fund: "false"
@@ -290,200 +283,41 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  package-linux-reh:
-    name: Package Linux x64 Servers (REH + REH-web)
+  package-linux:
+    name: Package Linux x64 (REH + REH-web + desktop .deb)
     if: |
       always() &&
       (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-        (github.event_name == 'workflow_dispatch' && inputs.package_linux_reh)
+        (github.event_name == 'workflow_dispatch' && inputs.package_linux)
       )
     needs: [bump-version]
     runs-on: ubuntu-latest
-    # Two gulp targets in one job. The second is much cheaper than the first —
-    # they share the compiled `out-build` — but 90 minutes no longer leaves
-    # headroom for a cold node_modules cache on top of both.
-    timeout-minutes: 150
+    # All three Linux artifacts are produced from ONE compile. Previously this
+    # was two jobs that each ran a full independent compile of the same sources.
+    timeout-minutes: 90
     env:
       VSCODE_ARCH: x64
       npm_config_arch: x64
-      # Skip the TS->TS mangler (private-field renaming, size optimization only).
-      # ubuntu-latest has ~7GB RAM; mangler peaks add ~3GB on top of TS and have
-      # been OOM-killing the runner ("hosted runner lost communication").
+      # `core-ci` takes the esbuild path (build/buildConfig.ts), which never runs
+      # the TS->TS mangler. Kept as a guard in case that path is switched off.
       VSCODE_NO_MANGLE: "1"
       # Match heap to actual runner RAM; the default `npm run gulp` script asks
-      # for 8192 which exceeds physical memory.
+      # for 8192 which exceeds physical memory on ubuntu-latest (~7GB).
       NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.bump-version.outputs.sha || github.sha }}
 
-      - name: Add 8 GB swap (prevents OOM during compile)
+      - name: Add 4 GB swap (headroom for the esbuild + extension webpack passes)
         run: |
-          sudo fallocate -l 8G /mnt/swapfile
+          sudo fallocate -l 4G /mnt/swapfile
           sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile
           sudo swapon /mnt/swapfile
           free -h
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            build/package-lock.json
-            build/vite/package-lock.json
-            extensions/**/package-lock.json
-            remote/**/package-lock.json
-            test/**/package-lock.json
-            .vscode/extensions/**/package-lock.json
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Linux build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libxkbfile-dev libsecret-1-dev libkrb5-dev libx11-dev \
-            libxkbcommon-dev fakeroot rpm
-
-      - name: Cache node_modules
-        id: nm-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            build/node_modules
-            build/vite/node_modules
-            extensions/node_modules
-            extensions/*/node_modules
-            extensions/*/server/node_modules
-            remote/node_modules
-            remote/web/node_modules
-            test/*/node_modules
-            .vscode/extensions/*/node_modules
-          key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
-
-      - name: Install dependencies
-        if: steps.nm-cache.outputs.cache-hit != 'true'
-        env:
-          npm_command: "ci --prefer-offline --no-audit --no-fund"
-          npm_config_prefer_offline: "true"
-          npm_config_audit: "false"
-          npm_config_fund: "false"
-          npm_config_jobs: "max"
-          # Lifts GitHub anonymous API rate limit (60/hr/IP) to the
-          # authenticated 5000/hr quota — required for @vscode/ripgrep's
-          # postinstall, which 403s otherwise.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm ci --prefer-offline --no-audit --no-fund
-
-      - name: Cache built-in extensions
-        uses: actions/cache@v4
-        with:
-          path: .build/builtInExtensions
-          key: builtin-extensions-${{ hashFiles('product.json') }}
-          restore-keys: |
-            builtin-extensions-
-
-      - name: Download built-in extensions
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node build/lib/builtInExtensions.ts
-
-      - name: Build remote server (vscode-reh-linux-x64-min)
-        run: npm run gulp vscode-reh-linux-x64-min
-
-      # The REH build above is the extension host only: it answers the
-      # remote-SSH protocol and returns 404 for every HTTP path, so there is no
-      # workbench to open in a browser. `reh-web` is the same server plus the
-      # web workbench assets (build/gulpfile.reh.ts builds both from one
-      # BUILD_TARGETS list); it is what serves the editor UI over HTTP, and
-      # what OTHCloud embeds in a website's Editor tab.
-      #
-      # Built in this job rather than its own so it reuses the checkout,
-      # node_modules cache, built-in extensions and — most of the cost —
-      # the already-compiled sources.
-      - name: Build web server (vscode-reh-web-linux-x64-min)
-        run: npm run gulp vscode-reh-web-linux-x64-min
-
-      - name: Read version
-        id: ver
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Stage build output into the repo (gulp emits it to ../vscode-reh-linux-x64)
-        run: |
-          mkdir -p .build/upload
-          cp -r ../vscode-reh-linux-x64 .build/upload/vscode-reh-linux-x64
-          # Stable filename pattern consumed by product.json's serverDownloadUrlTemplate
-          tar -czf ".build/upload/othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" \
-            -C .build/upload/vscode-reh-linux-x64 .
-          ls -la .build/upload
-
-      - name: Upload Linux REH server (raw folder)
-        uses: actions/upload-artifact@v4
-        with:
-          name: othcloud-terminal-server-linux-x64
-          path: .build/upload/vscode-reh-linux-x64
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload Linux REH server (.tar.gz for remote-SSH)
-        uses: actions/upload-artifact@v4
-        with:
-          name: othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
-          path: .build/upload/othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Stage web server output (gulp emits it to ../vscode-reh-web-linux-x64)
-        run: |
-          cp -r ../vscode-reh-web-linux-x64 .build/upload/vscode-reh-web-linux-x64
-          tar -czf ".build/upload/othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" \
-            -C .build/upload/vscode-reh-web-linux-x64 .
-          ls -la .build/upload
-
-      - name: Upload Linux web server (.tar.gz for browser workbench)
-        uses: actions/upload-artifact@v4
-        with:
-          name: othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
-          path: .build/upload/othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-  package-linux-desktop:
-    name: Package Linux x64 Desktop (.deb)
-    if: |
-      always() &&
-      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') &&
-      (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-        (github.event_name == 'workflow_dispatch' && inputs.package_linux_desktop)
-      )
-    needs: [bump-version]
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      VSCODE_ARCH: x64
-      npm_config_arch: x64
-      VSCODE_NO_MANGLE: "1"
-      NODE_OPTIONS: --max-old-space-size=6144
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.bump-version.outputs.sha || github.sha }}
-
-      - name: Add 8 GB swap (prevents OOM during compile)
-        run: |
-          sudo fallocate -l 8G /mnt/swapfile
-          sudo chmod 600 /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
 
       - uses: actions/setup-node@v4
         with:
@@ -533,6 +367,9 @@ jobs:
           npm_config_audit: "false"
           npm_config_fund: "false"
           npm_config_jobs: "max"
+          # Lifts GitHub anonymous API rate limit (60/hr/IP) to the
+          # authenticated 5000/hr quota — required for @vscode/ripgrep's
+          # postinstall, which 403s otherwise.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci --prefer-offline --no-audit --no-fund
 
@@ -553,8 +390,29 @@ jobs:
           node build/lib/electron.ts
           node build/lib/builtInExtensions.ts
 
-      - name: Build Linux desktop app (vscode-linux-x64-min)
-        run: npm run gulp vscode-linux-x64-min
+      # ONE compile for all three artifacts. `core-ci` transpiles + type-checks
+      # once with esbuild/tsgo, compiles the non-native extensions, then emits
+      # all three shipping bundles in parallel:
+      #   out-vscode-min           -> Linux desktop app / .deb
+      #   out-vscode-reh-min       -> REH server (Remote-SSH)
+      #   out-vscode-reh-web-min   -> REH-web server (browser workbench)
+      # The `*-min-ci` packaging tasks below consume those folders and do NOT
+      # recompile; they only add the native extensions and package.
+      - name: Compile core (esbuild — desktop + REH + REH-web bundles)
+        run: npm run gulp core-ci
+
+      - name: Package REH server (vscode-reh-linux-x64-min-ci)
+        run: npm run gulp vscode-reh-linux-x64-min-ci
+
+      # `reh-web` is the same server plus the web workbench assets; it is what
+      # serves the editor UI over HTTP and what OTHCloud embeds in a website's
+      # Editor tab. The plain `reh` build answers the remote-SSH protocol only
+      # and 404s every HTTP path.
+      - name: Package web server (vscode-reh-web-linux-x64-min-ci)
+        run: npm run gulp vscode-reh-web-linux-x64-min-ci
+
+      - name: Package desktop app (vscode-linux-x64-min-ci)
+        run: npm run gulp vscode-linux-x64-min-ci
 
       - name: Build .deb package
         run: |
@@ -565,20 +423,55 @@ jobs:
         id: ver
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Stage build outputs (rename .deb to a stable, version-pinned name)
+      - name: Stage REH server output (gulp emits it to ../vscode-reh-linux-x64)
         run: |
           mkdir -p .build/upload
+          cp -r ../vscode-reh-linux-x64 .build/upload/vscode-reh-linux-x64
+          # Stable filename pattern consumed by product.json's serverDownloadUrlTemplate
+          tar -czf ".build/upload/othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" \
+            -C .build/upload/vscode-reh-linux-x64 .
+
+      - name: Stage web server output (gulp emits it to ../vscode-reh-web-linux-x64)
+        run: |
+          cp -r ../vscode-reh-web-linux-x64 .build/upload/vscode-reh-web-linux-x64
+          tar -czf ".build/upload/othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" \
+            -C .build/upload/vscode-reh-web-linux-x64 .
+
+      - name: Stage desktop outputs (rename .deb to a stable, version-pinned name)
+        run: |
           # Locate the produced .deb (gulp emits it under .build/linux/deb/<arch>/deb/)
           deb_src=$(find .build/linux/deb -name '*.deb' -print -quit)
           if [ -z "$deb_src" ]; then
             echo "No .deb file produced!" >&2
             exit 1
           fi
-          stable_name="othcloud-terminal_${{ steps.ver.outputs.version }}_amd64.deb"
-          cp "$deb_src" ".build/upload/${stable_name}"
-          # Also stage the unzipped desktop folder
+          cp "$deb_src" ".build/upload/othcloud-terminal_${{ steps.ver.outputs.version }}_amd64.deb"
           cp -r ../VSCode-linux-x64 .build/upload/VSCode-linux-x64
           ls -la .build/upload
+
+      - name: Upload Linux REH server (raw folder)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-server-linux-x64
+          path: .build/upload/vscode-reh-linux-x64
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Linux REH server (.tar.gz for remote-SSH)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          path: .build/upload/othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Linux web server (.tar.gz for browser workbench)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          path: .build/upload/othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload Linux desktop app (raw folder)
         uses: actions/upload-artifact@v4
@@ -598,7 +491,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [bump-version, package, package-linux-reh, package-linux-desktop]
+    needs: [bump-version, package-windows, package-linux]
     # Publish whatever built. Requiring every platform meant a Windows
     # toolchain problem threw away a completed Linux build and published
     # nothing at all — the version had already been bumped, so the artifacts
@@ -606,10 +499,14 @@ jobs:
     # thought to dig them out of the run. The per-platform downloads below are
     # individually optional; a release simply contains the platforms that
     # succeeded, and the notes list exactly those.
+    #
+    # `package-linux` now produces the REH server, the REH-web server and the
+    # .deb from one compile, so it is the single required job; Windows stays
+    # optional.
     if: |
       always() &&
       needs.bump-version.result == 'success' &&
-      needs.package-linux-reh.result == 'success' &&
+      needs.package-linux.result == 'success' &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.release)

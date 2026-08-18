@@ -16,7 +16,6 @@ import rename from 'gulp-rename';
 import replace from 'gulp-replace';
 import filter from 'gulp-filter';
 import { getProductionDependencies } from './lib/dependencies.ts';
-import { readISODate } from './lib/date.ts';
 import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import flatmap from 'gulp-flatmap';
@@ -26,6 +25,10 @@ import File from 'vinyl';
 import * as fs from 'fs';
 import glob from 'glob';
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
+import { copyCodiconsTask } from './lib/compilation.ts';
+import { runEsbuildBundle } from './lib/esbuildRunner.ts';
+import { useEsbuildTranspile } from './buildConfig.ts';
+import { readISODate, writeISODate } from './lib/date.ts';
 import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } from './gulpfile.extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
@@ -474,14 +477,35 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			));
 			gulp.task(serverTaskCI);
 
-			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				compileBuildWithManglingTask,
-				cleanExtensionsBuildTask,
-				compileNonNativeExtensionsBuildTask,
-				compileExtensionMediaBuildTask,
-				minified ? minifyTask : bundleTask,
-				serverTaskCI
-			));
+			// The esbuild pipeline replaces gulp-tsb + the TS->TS mangler, which is
+			// where nearly all of this target's build time used to go. Mirrors the
+			// desktop targets in gulpfile.vscode.ts.
+			const serverTask = useEsbuildTranspile
+				? task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+					copyCodiconsTask,
+					cleanExtensionsBuildTask,
+					compileNonNativeExtensionsBuildTask,
+					compileExtensionMediaBuildTask,
+					writeISODate('out-build'),
+					task.define(`esbuild-bundle-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`,
+						() => runEsbuildBundle(
+							sourceFolderName,
+							!!minified,
+							true,
+							type === 'reh' ? 'server' : 'server-web',
+							minified ? `https://main.vscode-cdn.net/sourcemaps/${commit}/core` : undefined
+						)
+					),
+					serverTaskCI
+				))
+				: task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
+					compileBuildWithManglingTask,
+					cleanExtensionsBuildTask,
+					compileNonNativeExtensionsBuildTask,
+					compileExtensionMediaBuildTask,
+					minified ? minifyTask : bundleTask,
+					serverTaskCI
+				));
 			gulp.task(serverTask);
 		});
 	});

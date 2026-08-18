@@ -34,8 +34,6 @@ import { ILifecycleService } from '../../../../../services/lifecycle/common/life
 import { IViewsService } from '../../../../../services/views/common/viewsService.js';
 import { IWorkspaceEditingService } from '../../../../../services/workspaces/common/workspaceEditing.js';
 import { InMemoryTestFileService, mock, TestContextService, TestExtensionService, TestStorageService } from '../../../../../test/common/workbenchTestServices.js';
-import { IMcpService } from '../../../../mcp/common/mcpTypes.js';
-import { TestMcpService } from '../../../../mcp/test/common/testMcpService.js';
 import { ChatAgentService, IChatAgent, IChatAgentData, IChatAgentImplementation, IChatAgentService } from '../../../common/participants/chatAgents.js';
 import { IChatEditingService, IChatEditingSession } from '../../../common/editing/chatEditingService.js';
 import { ChatModel, IChatModel, ISerializableChatData } from '../../../common/model/chatModel.js';
@@ -159,7 +157,6 @@ suite('ChatService', () => {
 		instantiationService = testDisposables.add(new TestInstantiationService(new ServiceCollection(
 			[IChatVariablesService, new MockChatVariablesService()],
 			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()],
-			[IMcpService, new TestMcpService()],
 			[IPromptsService, new MockPromptsService()],
 		)));
 		instantiationService.stub(IStorageService, testDisposables.add(new TestStorageService()));

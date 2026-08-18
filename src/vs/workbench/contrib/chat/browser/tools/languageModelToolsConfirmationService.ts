@@ -204,13 +204,6 @@ export class LanguageModelToolsConfirmationService extends Disposable implements
 			return toolResult;
 		}
 
-		// Check server-level confirmation for MCP tools
-		if (ref.source.type === 'mcp') {
-			const serverResult = this._preExecutionServerConfirmStore.checkAutoConfirmation(ref.source.definitionId);
-			if (serverResult) {
-				return serverResult;
-			}
-		}
 
 		return undefined;
 	}
@@ -236,13 +229,6 @@ export class LanguageModelToolsConfirmationService extends Disposable implements
 			return toolResult;
 		}
 
-		// Check server-level confirmation for MCP tools
-		if (ref.source.type === 'mcp') {
-			const serverResult = this._postExecutionServerConfirmStore.checkAutoConfirmation(ref.source.definitionId);
-			if (serverResult) {
-				return serverResult;
-			}
-		}
 
 		return undefined;
 	}
@@ -290,37 +276,6 @@ export class LanguageModelToolsConfirmationService extends Disposable implements
 			}
 		);
 
-		// Add server-level actions for MCP tools
-		if (ref.source.type === 'mcp') {
-			const { serverLabel, definitionId } = ref.source;
-			actions.push(
-				{
-					label: localize('allowServerSession', 'Allow Tools from {0} in this Session', serverLabel),
-					detail: localize('allowServerSessionTooltip', 'Allow all tools from this server to run in this session without confirmation.'),
-					divider: true,
-					select: async () => {
-						this._preExecutionServerConfirmStore.setAutoConfirmation(definitionId, 'session');
-						return true;
-					}
-				},
-				{
-					label: localize('allowServerWorkspace', 'Allow Tools from {0} in this Workspace', serverLabel),
-					detail: localize('allowServerWorkspaceTooltip', 'Allow all tools from this server to run in this workspace without confirmation.'),
-					select: async () => {
-						this._preExecutionServerConfirmStore.setAutoConfirmation(definitionId, 'workspace');
-						return true;
-					}
-				},
-				{
-					label: localize('allowServerGlobally', 'Always Allow Tools from {0}', serverLabel),
-					detail: localize('allowServerGloballyTooltip', 'Always allow all tools from this server to run without confirmation.'),
-					select: async () => {
-						this._preExecutionServerConfirmStore.setAutoConfirmation(definitionId, 'profile');
-						return true;
-					}
-				}
-			);
-		}
 
 		return actions;
 	}
@@ -368,37 +323,6 @@ export class LanguageModelToolsConfirmationService extends Disposable implements
 			}
 		);
 
-		// Add server-level actions for MCP tools
-		if (ref.source.type === 'mcp') {
-			const { serverLabel, definitionId } = ref.source;
-			actions.push(
-				{
-					label: localize('allowServerSessionPost', 'Allow Tools from {0} Without Review in this Session', serverLabel),
-					detail: localize('allowServerSessionPostTooltip', 'Allow results from all tools from this server to be sent without confirmation in this session.'),
-					divider: true,
-					select: async () => {
-						this._postExecutionServerConfirmStore.setAutoConfirmation(definitionId, 'session');
-						return true;
-					}
-				},
-				{
-					label: localize('allowServerWorkspacePost', 'Allow Tools from {0} Without Review in this Workspace', serverLabel),
-					detail: localize('allowServerWorkspacePostTooltip', 'Allow results from all tools from this server to be sent without confirmation in this workspace.'),
-					select: async () => {
-						this._postExecutionServerConfirmStore.setAutoConfirmation(definitionId, 'workspace');
-						return true;
-					}
-				},
-				{
-					label: localize('allowServerGloballyPost', 'Always Allow Tools from {0} Without Review', serverLabel),
-					detail: localize('allowServerGloballyPostTooltip', 'Always allow results from all tools from this server to be sent without confirmation.'),
-					select: async () => {
-						this._postExecutionServerConfirmStore.setAutoConfirmation(definitionId, 'profile');
-						return true;
-					}
-				}
-			);
-		}
 
 		return actions;
 	}
@@ -430,9 +354,7 @@ export class LanguageModelToolsConfirmationService extends Disposable implements
 
 		// Helper to add server tool from source
 		const addServerToolFromSource = (source: ToolDataSource, toolId: string, serversWithTools: Map<string, { label: string; tools: Set<string> }>) => {
-			if (source.type === 'mcp') {
-				trackServerTool(source.definitionId, source.serverLabel || source.label, toolId, serversWithTools);
-			} else if (source.type === 'extension') {
+			if (source.type === 'extension') {
 				trackServerTool(source.extensionId.value, source.label, toolId, serversWithTools);
 			}
 		};
@@ -603,15 +525,15 @@ export class LanguageModelToolsConfirmationService extends Disposable implements
 				});
 			}
 
-			// Add individual tool nodes (only for non-MCP/extension tools)
+			// Add individual tool nodes (only for non-extension tools)
 			const sortedTools = tools.slice().sort((a, b) => a.displayName.localeCompare(b.displayName));
 			for (const tool of sortedTools) {
 				if (!relevantTools.has(tool.id)) {
 					continue;
 				}
 
-				// Skip tools that belong to MCP/extension servers (they're shown under server nodes)
-				if (tool.source.type === 'mcp' || tool.source.type === 'extension') {
+				// Skip tools that belong to extension servers (they're shown under server nodes)
+				if (tool.source.type === 'extension') {
 					continue;
 				}
 

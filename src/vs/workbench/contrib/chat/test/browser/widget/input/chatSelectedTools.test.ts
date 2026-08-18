@@ -19,6 +19,7 @@ import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTr
 import { timeout } from '../../../../../../../base/common/async.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { URI } from '../../../../../../../base/common/uri.js';
+import { ExtensionIdentifier } from '../../../../../../../platform/extensions/common/extensions.js';
 import { ChatMode } from '../../../../common/chatModes.js';
 
 suite('ChatSelectedTools', () => {
@@ -49,7 +50,7 @@ suite('ChatSelectedTools', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	const mcpSource: ToolDataSource = { type: 'mcp', label: 'MCP', collectionId: '', definitionId: '', instructions: '', serverLabel: '' };
+	const mcpSource: ToolDataSource = { type: 'extension', label: 'MCP', extensionId: new ExtensionIdentifier('test.mcp') };
 	test('Can\'t enable/disable MCP tools directly #18161', () => {
 
 		return runWithFakedTimers({}, async () => {

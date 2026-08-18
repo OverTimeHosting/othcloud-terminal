@@ -243,7 +243,7 @@ suite('LanguageModelToolsService', () => {
 
 		/** MCP tool in a MCP tool set */
 
-		const mcpDataSource: ToolDataSource = { type: 'mcp', label: 'My MCP Server', serverLabel: 'MCP Server', instructions: undefined, collectionId: 'testMCPCollection', definitionId: 'testMCPDefId' };
+		const mcpDataSource: ToolDataSource = { type: 'extension', label: 'My MCP Server', extensionId: new ExtensionIdentifier('test.mcpServer') };
 		const mcpTool1: IToolData = {
 			id: 'mcpTool1',
 			toolReferenceName: 'mcpTool1RefName',
@@ -1148,7 +1148,7 @@ suite('LanguageModelToolsService', () => {
 		store.add(service.registerToolData(runSubagentToolData));
 		store.add(service.agentToolSet.addTool(runSubagentToolData));
 
-		const githubMcpDataSource: ToolDataSource = { type: 'mcp', label: 'Github', serverLabel: 'Github MCP Server', instructions: undefined, collectionId: 'githubMCPCollection', definitionId: 'githubMCPDefId' };
+		const githubMcpDataSource: ToolDataSource = { type: 'extension', label: 'Github', extensionId: new ExtensionIdentifier('test.github') };
 		const githubMcpTool1: IToolData = {
 			id: 'create_branch',
 			toolReferenceName: 'create_branch',
@@ -1169,7 +1169,7 @@ suite('LanguageModelToolsService', () => {
 
 		assert.equal(githubMcpToolSet.referenceName, 'github', 'github/github-mcp-server will be normalized to github');
 
-		const playwrightMcpDataSource: ToolDataSource = { type: 'mcp', label: 'playwright', serverLabel: 'playwright MCP Server', instructions: undefined, collectionId: 'playwrightMCPCollection', definitionId: 'playwrightMCPDefId' };
+		const playwrightMcpDataSource: ToolDataSource = { type: 'extension', label: 'playwright', extensionId: new ExtensionIdentifier('test.playwright') };
 		const playwrightMcpTool1: IToolData = {
 			id: 'browser_click',
 			toolReferenceName: 'browser_click',
@@ -2101,7 +2101,7 @@ suite('LanguageModelToolsService', () => {
 	test('toToolAndToolSetEnablementMap with MCP toolset enables contained tools', () => {
 		// Create MCP toolset
 		const mcpToolSet = store.add(service.createToolSet(
-			{ type: 'mcp', label: 'testServer', serverLabel: 'testServer', instructions: undefined, collectionId: 'testCollection', definitionId: 'testDef' },
+			{ type: 'extension', label: 'testServer', extensionId: new ExtensionIdentifier('test.testServer') },
 			'mcpSet',
 			'mcpSetRef'
 		));
@@ -2110,7 +2110,7 @@ suite('LanguageModelToolsService', () => {
 			id: 'mcpTool',
 			modelDescription: 'MCP Tool',
 			displayName: 'MCP Tool',
-			source: { type: 'mcp', label: 'testServer', serverLabel: 'testServer', instructions: undefined, collectionId: 'testCollection', definitionId: 'testDef' },
+			source: { type: 'extension', label: 'testServer', extensionId: new ExtensionIdentifier('test.testServer') },
 			canBeReferencedInPrompt: true,
 			toolReferenceName: 'mcpToolRef'
 		};
@@ -3441,7 +3441,7 @@ suite('LanguageModelToolsService', () => {
 
 		// Create MCP toolset (not in permitted list)
 		const mcpToolSet = store.add(service.createToolSet(
-			{ type: 'mcp', label: 'Test MCP', serverLabel: 'Test MCP Server', instructions: undefined, collectionId: 'testMcp', definitionId: 'testMcpDef' },
+			{ type: 'extension', label: 'Test MCP', extensionId: new ExtensionIdentifier('test.testMcp') },
 			'mcpToolSetBlocked',
 			'mcpToolSetBlockedRef',
 			{ description: 'MCP Tool Set' }
@@ -3452,7 +3452,7 @@ suite('LanguageModelToolsService', () => {
 			toolReferenceName: 'mcpToolRef',
 			modelDescription: 'MCP Tool',
 			displayName: 'MCP Tool',
-			source: { type: 'mcp', label: 'Test MCP', serverLabel: 'Test MCP Server', instructions: undefined, collectionId: 'testMcp', definitionId: 'testMcpDef' },
+			source: { type: 'extension', label: 'Test MCP', extensionId: new ExtensionIdentifier('test.testMcp') },
 			canBeReferencedInPrompt: true,
 		};
 		store.add(service.registerToolData(mcpTool));

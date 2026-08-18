@@ -66,7 +66,6 @@ import { IChatMessage, IChatResponsePart, ILanguageModelChatInfoOptions, ILangua
 import { IPreparedToolInvocation, IStreamedToolInvocation, IToolInvocation, IToolInvocationPreparationContext, IToolInvocationStreamContext, IToolProgressStep, IToolResult, ToolDataSource } from '../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IPromptFileContext, IPromptFileResource } from '../../contrib/chat/common/promptSyntax/service/promptsService.js';
 import { DebugConfigurationProviderTriggerKind, IAdapterDescriptor, IConfig, IDebugSessionReplMode, IDebugTestRunReference, IDebugVisualization, IDebugVisualizationContext, IDebugVisualizationTreeItem, MainThreadDebugVisualization } from '../../contrib/debug/common/debug.js';
-import { McpCollectionDefinition, McpConnectionState, McpServerDefinition, McpServerLaunch } from '../../contrib/mcp/common/mcpTypes.js';
 import * as notebookCommon from '../../contrib/notebook/common/notebookCommon.js';
 import { CellExecutionUpdateType } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { ICellExecutionComplete, ICellExecutionStateUpdate } from '../../contrib/notebook/common/notebookExecutionStateService.js';
@@ -3226,64 +3225,6 @@ export interface ExtHostTestingShape {
 	$disposeTestFollowups(id: number[]): void;
 }
 
-export interface IStartMcpOptions {
-	launch: McpServerLaunch.Serialized;
-	defaultCwd?: UriComponents;
-	errorOnUserInteraction?: boolean;
-}
-
-export interface ExtHostMcpShape {
-	$substituteVariables(workspaceFolder: UriComponents | undefined, value: McpServerLaunch.Serialized): Promise<McpServerLaunch.Serialized>;
-	$resolveMcpLaunch(collectionId: string, label: string): Promise<McpServerLaunch.Serialized | undefined>;
-	$startMcp(id: number, opts: IStartMcpOptions): void;
-	$stopMcp(id: number): void;
-	$sendMessage(id: number, message: string): void;
-	$waitForInitialCollectionProviders(): Promise<void>;
-	$onDidChangeMcpServerDefinitions(servers: McpServerDefinition.Serialized[]): void;
-}
-
-export interface IMcpAuthenticationDetails {
-	authorizationServer: UriComponents;
-	authorizationServerMetadata: IAuthorizationServerMetadata;
-	resourceMetadata: IAuthorizationProtectedResourceMetadata | undefined;
-	scopes: string[] | undefined;
-}
-
-export interface IMcpAuthenticationOptions {
-	errorOnUserInteraction?: boolean;
-	forceNewRegistration?: boolean;
-}
-
-export const enum IAuthResourceMetadataSource {
-	Header = 'header',
-	WellKnown = 'wellKnown',
-	None = 'none',
-}
-
-export const enum IAuthServerMetadataSource {
-	ResourceMetadata = 'resourceMetadata',
-	WellKnown = 'wellKnown',
-	Default = 'default',
-}
-
-export interface IAuthMetadataSource {
-	resourceMetadataSource: IAuthResourceMetadataSource;
-	serverMetadataSource: IAuthServerMetadataSource;
-}
-
-export interface MainThreadMcpShape {
-	$onDidChangeState(id: number, state: McpConnectionState): void;
-	$onDidPublishLog(id: number, level: LogLevel, log: string): void;
-	$onDidReceiveMessage(id: number, message: string): void;
-	$upsertMcpCollection(collection: McpCollectionDefinition.FromExtHost, servers: McpServerDefinition.Serialized[]): void;
-	$deleteMcpCollection(collectionId: string): void;
-	$getTokenFromServerMetadata(id: number, authDetails: IMcpAuthenticationDetails, options?: IMcpAuthenticationOptions): Promise<string | undefined>;
-	$getTokenForProviderId(id: number, providerId: string, scopes: string[], options?: IMcpAuthenticationOptions): Promise<string | undefined>;
-	$logMcpAuthSetup(data: IAuthMetadataSource): void;
-	$startMcpGateway(): Promise<{ address: UriComponents; gatewayId: string } | undefined>;
-	$disposeMcpGateway(gatewayId: string): void;
-}
-
 export interface MainThreadDataChannelsShape extends IDisposable {
 }
 
@@ -3523,7 +3464,6 @@ export const MainContext = {
 	MainThreadTimeline: createProxyIdentifier<MainThreadTimelineShape>('MainThreadTimeline'),
 	MainThreadTesting: createProxyIdentifier<MainThreadTestingShape>('MainThreadTesting'),
 	MainThreadLocalization: createProxyIdentifier<MainThreadLocalizationShape>('MainThreadLocalizationShape'),
-	MainThreadMcp: createProxyIdentifier<MainThreadMcpShape>('MainThreadMcpShape'),
 	MainThreadAiRelatedInformation: createProxyIdentifier<MainThreadAiRelatedInformationShape>('MainThreadAiRelatedInformation'),
 	MainThreadAiEmbeddingVector: createProxyIdentifier<MainThreadAiEmbeddingVectorShape>('MainThreadAiEmbeddingVector'),
 	MainThreadChatStatus: createProxyIdentifier<MainThreadChatStatusShape>('MainThreadChatStatus'),
@@ -3607,7 +3547,6 @@ export const ExtHostContext = {
 	ExtHostTelemetry: createProxyIdentifier<ExtHostTelemetryShape>('ExtHostTelemetry'),
 	ExtHostMeteredConnection: createProxyIdentifier<ExtHostMeteredConnectionShape>('ExtHostMeteredConnection'),
 	ExtHostLocalization: createProxyIdentifier<ExtHostLocalizationShape>('ExtHostLocalization'),
-	ExtHostMcp: createProxyIdentifier<ExtHostMcpShape>('ExtHostMcp'),
 	ExtHostDataChannels: createProxyIdentifier<ExtHostDataChannelsShape>('ExtHostDataChannels'),
 	ExtHostChatSessions: createProxyIdentifier<ExtHostChatSessionsShape>('ExtHostChatSessions'),
 };

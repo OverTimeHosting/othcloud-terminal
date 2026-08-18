@@ -821,7 +821,10 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 						localize('window.menuBarVisibility.compact.web', "Menu is displayed as a compact button in the side bar.") :
 						localize({ key: 'window.menuBarVisibility.compact', comment: ['{0}, {1} is a placeholder for a setting identifier.'] }, "Menu is displayed as a compact button in the side bar. This value is ignored when {0} is {1} and {2} is either {3} or {4}.", '`#window.titleBarStyle#`', '`native`', '`#window.menuStyle#`', '`native`', '`inherit`')
 				],
-				'default': isWeb ? 'compact' : 'classic',
+				// OTHCloud: collapse File/Edit/Selection/… into a single compact menu
+				// button in the title bar instead of a full menu strip. macOS still
+				// falls back to 'classic' (it uses the system menu bar).
+				'default': 'compact',
 				'scope': ConfigurationScope.APPLICATION,
 				'markdownDescription': isMacintosh ?
 					localize('menuBarVisibility.mac', "Control the visibility of the menu bar. A setting of 'toggle' means that the menu bar is hidden and executing `Focus Application Menu` will show it. A setting of 'compact' will move the menu into the side bar.") :

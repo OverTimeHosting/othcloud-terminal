@@ -16,7 +16,6 @@ import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurati
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { McpAccessValue, McpAutoStartValue, mcpAccessConfig, mcpAutoStartConfig, mcpGalleryServiceEnablementConfig, mcpGalleryServiceUrlConfig, mcpAppsEnabledConfig } from '../../../../platform/mcp/common/mcpManagement.js';
 import product from '../../../../platform/product/common/product.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
@@ -26,8 +25,6 @@ import { EditorExtensions, IEditorFactoryRegistry } from '../../../common/editor
 import { IWorkbenchAssignmentService } from '../../../services/assignment/common/assignmentService.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
-import { AddConfigurationType, AssistedTypes } from '../../mcp/browser/mcpCommandsAddConfiguration.js';
-import { allDiscoverySources, discoverySourceSettingsLabel, mcpDiscoverySection, mcpServerSamplingSection } from '../../mcp/common/mcpConfiguration.js';
 import { ChatAgentNameService, ChatAgentService, IChatAgentNameService, IChatAgentService } from '../common/participants/chatAgents.js';
 import { CodeMapperService, ICodeMapperService } from '../common/editing/chatCodeMapperService.js';
 import '../common/widget/chatColors.js';
@@ -473,110 +470,6 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize('chat.checkpoints.showFileChanges', "Controls whether to show chat checkpoint file changes."),
 			default: false
 		},
-		[mcpAccessConfig]: {
-			type: 'string',
-			description: nls.localize('chat.mcp.access', "Controls access to installed Model Context Protocol servers."),
-			enum: [
-				McpAccessValue.None,
-				McpAccessValue.Registry,
-				McpAccessValue.All
-			],
-			enumDescriptions: [
-				nls.localize('chat.mcp.access.none', "No access to MCP servers."),
-				nls.localize('chat.mcp.access.registry', "Allows access to MCP servers installed from the registry that VS Code is connected to."),
-				nls.localize('chat.mcp.access.any', "Allow access to any installed MCP server.")
-			],
-			default: McpAccessValue.All,
-			policy: {
-				name: 'ChatMCP',
-				category: PolicyCategory.InteractiveSession,
-				minimumVersion: '1.99',
-				value: (policyData) => {
-					if (policyData.mcp === false) {
-						return McpAccessValue.None;
-					}
-					if (policyData.mcpAccess === 'registry_only') {
-						return McpAccessValue.Registry;
-					}
-					return undefined;
-				},
-				localization: {
-					description: {
-						key: 'chat.mcp.access',
-						value: nls.localize('chat.mcp.access', "Controls access to installed Model Context Protocol servers.")
-					},
-					enumDescriptions: [
-						{
-							key: 'chat.mcp.access.none', value: nls.localize('chat.mcp.access.none', "No access to MCP servers."),
-						},
-						{
-							key: 'chat.mcp.access.registry', value: nls.localize('chat.mcp.access.registry', "Allows access to MCP servers installed from the registry that VS Code is connected to."),
-						},
-						{
-							key: 'chat.mcp.access.any', value: nls.localize('chat.mcp.access.any', "Allow access to any installed MCP server.")
-						}
-					]
-				},
-			}
-		},
-		[mcpAutoStartConfig]: {
-			type: 'string',
-			description: nls.localize('chat.mcp.autostart', "Controls whether MCP servers should be automatically started when the chat messages are submitted."),
-			default: McpAutoStartValue.NewAndOutdated,
-			enum: [
-				McpAutoStartValue.Never,
-				McpAutoStartValue.OnlyNew,
-				McpAutoStartValue.NewAndOutdated
-			],
-			enumDescriptions: [
-				nls.localize('chat.mcp.autostart.never', "Never automatically start MCP servers."),
-				nls.localize('chat.mcp.autostart.onlyNew', "Only automatically start new MCP servers that have never been run."),
-				nls.localize('chat.mcp.autostart.newAndOutdated', "Automatically start new and outdated MCP servers that are not yet running.")
-			],
-			tags: ['experimental'],
-		},
-		[mcpAppsEnabledConfig]: {
-			type: 'boolean',
-			description: nls.localize('chat.mcp.ui.enabled', "Controls whether MCP servers can provide custom UI for tool invocations."),
-			default: true,
-			tags: ['experimental'],
-		},
-		[mcpServerSamplingSection]: {
-			type: 'object',
-			description: nls.localize('chat.mcp.serverSampling', "Configures which models are exposed to MCP servers for sampling (making model requests in the background). This setting can be edited in a graphical way under the `{0}` command.", 'MCP: ' + nls.localize('mcp.list', 'List Servers')),
-			scope: ConfigurationScope.RESOURCE,
-			additionalProperties: {
-				type: 'object',
-				properties: {
-					allowedDuringChat: {
-						type: 'boolean',
-						description: nls.localize('chat.mcp.serverSampling.allowedDuringChat', "Whether this server is make sampling requests during its tool calls in a chat session."),
-						default: true,
-					},
-					allowedOutsideChat: {
-						type: 'boolean',
-						description: nls.localize('chat.mcp.serverSampling.allowedOutsideChat', "Whether this server is allowed to make sampling requests outside of a chat session."),
-						default: false,
-					},
-					allowedModels: {
-						type: 'array',
-						items: {
-							type: 'string',
-							description: nls.localize('chat.mcp.serverSampling.model', "A model the MCP server has access to."),
-						},
-					}
-				}
-			},
-		},
-		[AssistedTypes[AddConfigurationType.NuGetPackage].enabledConfigKey]: {
-			type: 'boolean',
-			description: nls.localize('chat.mcp.assisted.nuget.enabled.description', "Enables NuGet packages for AI-assisted MCP server installation. Used to install MCP servers by name from the central registry for .NET packages (NuGet.org)."),
-			default: false,
-			tags: ['experimental'],
-			experiment: {
-				mode: 'startup'
-			}
-		},
 		[ChatConfiguration.Edits2Enabled]: {
 			type: 'boolean',
 			description: nls.localize('chat.edits2Enabled', "Enable the new Edits mode that is based on tool-calling. When this is enabled, models that don't support tool-calling are unavailable for Edits mode."),
@@ -690,40 +583,6 @@ configurationRegistry.registerConfiguration({
 			experiment: {
 				mode: 'auto'
 			}
-		},
-		[mcpDiscoverySection]: {
-			type: 'object',
-			properties: Object.fromEntries(allDiscoverySources.map(k => [k, { type: 'boolean', description: discoverySourceSettingsLabel[k] }])),
-			additionalProperties: false,
-			default: Object.fromEntries(allDiscoverySources.map(k => [k, false])),
-			markdownDescription: nls.localize('mcp.discovery.enabled', "Configures discovery of Model Context Protocol servers from configuration from various other applications."),
-		},
-		[mcpGalleryServiceEnablementConfig]: {
-			type: 'boolean',
-			default: false,
-			tags: ['preview'],
-			description: nls.localize('chat.mcp.gallery.enabled', "Enables the default Marketplace for Model Context Protocol (MCP) servers."),
-			included: product.quality === 'stable'
-		},
-		[mcpGalleryServiceUrlConfig]: {
-			type: 'string',
-			description: nls.localize('mcp.gallery.serviceUrl', "Configure the MCP Gallery service URL to connect to"),
-			default: '',
-			scope: ConfigurationScope.APPLICATION,
-			tags: ['usesOnlineServices', 'advanced'],
-			included: false,
-			policy: {
-				name: 'McpGalleryServiceUrl',
-				category: PolicyCategory.InteractiveSession,
-				minimumVersion: '1.101',
-				value: (policyData) => policyData.mcpRegistryUrl,
-				localization: {
-					description: {
-						key: 'mcp.gallery.serviceUrl',
-						value: nls.localize('mcp.gallery.serviceUrl', "Configure the MCP Gallery service URL to connect to"),
-					}
-				}
-			},
 		},
 		[PromptsConfig.INSTRUCTIONS_LOCATION_KEY]: {
 			type: 'object',
@@ -1164,16 +1023,6 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration).
 			['chat.useClaudeSkills', { value: undefined }],
 			['chat.useAgentSkills', { value }]
 		])
-	},
-	{
-		key: mcpDiscoverySection,
-		migrateFn: (value: unknown) => {
-			if (typeof value === 'boolean') {
-				return { value: Object.fromEntries(allDiscoverySources.map(k => [k, value])) };
-			}
-
-			return { value };
-		}
 	},
 ]);
 

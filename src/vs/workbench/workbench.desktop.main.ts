@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 // #######################################################################
 // ###                                                                 ###
 // ### !!! PLEASE ADD COMMON IMPORTS INTO WORKBENCH.COMMON.MAIN.TS !!! ###
@@ -16,7 +15,6 @@ import './workbench.common.main.js';
 
 //#endregion
 
-
 //#region --- workbench (desktop main)
 
 import './electron-browser/desktop.main.js';
@@ -24,13 +22,11 @@ import './electron-browser/desktop.contribution.js';
 
 //#endregion
 
-
 //#region --- workbench parts
 
 import './electron-browser/parts/dialogs/dialog.contribution.js';
 
 //#endregion
-
 
 //#region --- workbench services
 
@@ -54,8 +50,6 @@ import './services/keybinding/electron-browser/nativeKeyboardLayout.js';
 import './services/path/electron-browser/pathService.js';
 import './services/themes/electron-browser/nativeHostColorSchemeService.js';
 import './services/extensionManagement/electron-browser/extensionManagementService.js';
-import './services/mcp/electron-browser/mcpGalleryManifestService.js';
-import './services/mcp/electron-browser/mcpWorkbenchManagementService.js';
 import './services/encryption/electron-browser/encryptionService.js';
 import './services/imageResize/electron-browser/imageResizeService.js';
 import './services/browserElements/electron-browser/browserElementsService.js';
@@ -100,9 +94,7 @@ import { SyncDescriptor } from '../platform/instantiation/common/descriptors.js'
 
 registerSingleton(IUserDataInitializationService, new SyncDescriptor(UserDataInitializationService, [[]], true));
 
-
 //#endregion
-
 
 //#region --- workbench contributions
 
@@ -190,13 +182,9 @@ import './contrib/encryption/electron-browser/encryption.contribution.js';
 // Emergency Alert
 import './contrib/emergencyAlert/electron-browser/emergencyAlert.contribution.js';
 
-// MCP
-import './contrib/mcp/electron-browser/mcp.contribution.js';
-
 // Policy Export
 import './contrib/policyExport/electron-browser/policyExport.contribution.js';
 
 //#endregion
-
 
 export { main } from './electron-browser/desktop.main.js';

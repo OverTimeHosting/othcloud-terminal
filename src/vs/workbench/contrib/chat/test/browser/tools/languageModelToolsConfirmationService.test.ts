@@ -29,21 +29,6 @@ suite('LanguageModelToolsConfirmationService', () => {
 		return { toolId, source, parameters };
 	}
 
-	function createMcpToolRef(toolId: string, definitionId: string, serverLabel: string, parameters: unknown = {}): ILanguageModelToolConfirmationRef {
-		return {
-			toolId,
-			source: {
-				type: 'mcp',
-				label: serverLabel,
-				serverLabel,
-				instructions: undefined,
-				collectionId: 'testCollection',
-				definitionId
-			},
-			parameters
-		};
-	}
-
 	test('getPreConfirmAction returns undefined by default', () => {
 		const ref = createToolRef('testTool');
 		const result = service.getPreConfirmAction(ref);
@@ -74,24 +59,6 @@ suite('LanguageModelToolsConfirmationService', () => {
 		assert.ok(actions.some(a => a.label.includes('Session')));
 		assert.ok(actions.some(a => a.label.includes('Workspace')));
 		assert.ok(actions.some(a => a.label.includes('Always Allow')));
-	});
-
-	test('getPreConfirmActions includes server-level actions for MCP tools', () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-		const actions = service.getPreConfirmActions(ref);
-
-		assert.ok(actions.some(a => a.label.includes('Test Server') && a.label.includes('Session')));
-		assert.ok(actions.some(a => a.label.includes('Test Server') && a.label.includes('Workspace')));
-		assert.ok(actions.some(a => a.label.includes('Test Server') && a.label.includes('Always Allow')));
-	});
-
-	test('getPostConfirmActions includes server-level actions for MCP tools', () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-		const actions = service.getPostConfirmActions(ref);
-
-		assert.ok(actions.some(a => a.label.includes('Test Server') && a.label.includes('Session')));
-		assert.ok(actions.some(a => a.label.includes('Test Server') && a.label.includes('Workspace')));
-		assert.ok(actions.some(a => a.label.includes('Test Server') && a.label.includes('Always Allow')));
 	});
 
 	test('pre-execution session confirmation works', async () => {
@@ -164,91 +131,6 @@ suite('LanguageModelToolsConfirmationService', () => {
 
 		const result = service.getPostConfirmAction(ref);
 		assert.deepStrictEqual(result, { type: ToolConfirmKind.LmServicePerTool, scope: 'profile' });
-	});
-
-	test('MCP server-level pre-execution session confirmation works', async () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-		const actions = service.getPreConfirmActions(ref);
-		const serverAction = actions.find(a => a.label.includes('Test Server') && a.label.includes('Session'));
-
-		assert.ok(serverAction);
-		await serverAction.select();
-
-		const result = service.getPreConfirmAction(ref);
-		assert.deepStrictEqual(result, { type: ToolConfirmKind.LmServicePerTool, scope: 'session' });
-	});
-
-	test('MCP server-level pre-execution workspace confirmation works', async () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-		const actions = service.getPreConfirmActions(ref);
-		const serverAction = actions.find(a => a.label.includes('Test Server') && a.label.includes('Workspace'));
-
-		assert.ok(serverAction);
-		await serverAction.select();
-
-		const result = service.getPreConfirmAction(ref);
-		assert.deepStrictEqual(result, { type: ToolConfirmKind.LmServicePerTool, scope: 'workspace' });
-	});
-
-	test('MCP server-level pre-execution profile confirmation works', async () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-		const actions = service.getPreConfirmActions(ref);
-		const serverAction = actions.find(a => a.label.includes('Test Server') && a.label.includes('Always Allow'));
-
-		assert.ok(serverAction);
-		await serverAction.select();
-
-		const result = service.getPreConfirmAction(ref);
-		assert.deepStrictEqual(result, { type: ToolConfirmKind.LmServicePerTool, scope: 'profile' });
-	});
-
-	test('MCP server-level post-execution session confirmation works', async () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-		const actions = service.getPostConfirmActions(ref);
-		const serverAction = actions.find(a => a.label.includes('Test Server') && a.label.includes('Session'));
-
-		assert.ok(serverAction);
-		await serverAction.select();
-
-		const result = service.getPostConfirmAction(ref);
-		assert.deepStrictEqual(result, { type: ToolConfirmKind.LmServicePerTool, scope: 'session' });
-	});
-
-	test('MCP server-level confirmation applies to all tools from that server', async () => {
-		const ref1 = createMcpToolRef('mcpTool1', 'serverId', 'Test Server');
-		const ref2 = createMcpToolRef('mcpTool2', 'serverId', 'Test Server');
-
-		const actions = service.getPreConfirmActions(ref1);
-		const serverAction = actions.find(a => a.label.includes('Test Server') && a.label.includes('Session'));
-
-		assert.ok(serverAction);
-		await serverAction.select();
-
-		const result1 = service.getPreConfirmAction(ref1);
-		const result2 = service.getPreConfirmAction(ref2);
-
-		assert.deepStrictEqual(result1, { type: ToolConfirmKind.LmServicePerTool, scope: 'session' });
-		assert.deepStrictEqual(result2, { type: ToolConfirmKind.LmServicePerTool, scope: 'session' });
-	});
-
-	test('tool-level confirmation takes precedence over server-level confirmation', async () => {
-		const ref = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
-
-		// Set server-level confirmation
-		const serverActions = service.getPreConfirmActions(ref);
-		const serverAction = serverActions.find(a => a.label.includes('Test Server') && a.label.includes('Session'));
-		assert.ok(serverAction);
-		await serverAction.select();
-
-		// Set tool-level confirmation to a different scope
-		const toolActions = service.getPreConfirmActions(ref);
-		const toolAction = toolActions.find(a => !a.label.includes('Test Server') && a.label.includes('Workspace'));
-		assert.ok(toolAction);
-		await toolAction.select();
-
-		// Tool-level should take precedence
-		const result = service.getPreConfirmAction(ref);
-		assert.deepStrictEqual(result, { type: ToolConfirmKind.LmServicePerTool, scope: 'workspace' });
 	});
 
 	test('registerConfirmationContribution allows custom pre-confirm actions', () => {
@@ -365,18 +247,15 @@ suite('LanguageModelToolsConfirmationService', () => {
 
 	test('resetToolAutoConfirmation clears all confirmations', async () => {
 		const ref1 = createToolRef('tool1');
-		const ref2 = createMcpToolRef('mcpTool', 'serverId', 'Test Server');
+		const ref2 = createToolRef('tool2');
 
 		// Set some confirmations
-		const actions1 = service.getPreConfirmActions(ref1);
-		const sessionAction1 = actions1.find(a => a.label.includes('Session') && !a.label.includes('Server'));
-		assert.ok(sessionAction1);
-		await sessionAction1.select();
-
-		const actions2 = service.getPreConfirmActions(ref2);
-		const serverAction = actions2.find(a => a.label.includes('Test Server') && a.label.includes('Session'));
-		assert.ok(serverAction);
-		await serverAction.select();
+		for (const ref of [ref1, ref2]) {
+			const actions = service.getPreConfirmActions(ref);
+			const sessionAction = actions.find(a => a.label.includes('Session') && !a.label.includes('Server'));
+			assert.ok(sessionAction);
+			await sessionAction.select();
+		}
 
 		// Verify they're set
 		assert.ok(service.getPreConfirmAction(ref1));
@@ -470,30 +349,6 @@ suite('LanguageModelToolsConfirmationService', () => {
 
 		assert.deepStrictEqual(preResult, { type: ToolConfirmKind.LmServicePerTool, scope: 'session' });
 		assert.deepStrictEqual(postResult, { type: ToolConfirmKind.LmServicePerTool, scope: 'workspace' });
-	});
-
-	test('different MCP servers have independent confirmations', async () => {
-		const ref1 = createMcpToolRef('tool1', 'server1', 'Server 1');
-		const ref2 = createMcpToolRef('tool2', 'server2', 'Server 2');
-
-		// Set server1 to session
-		const actions1 = service.getPreConfirmActions(ref1);
-		const serverAction1 = actions1.find(a => a.label.includes('Server 1') && a.label.includes('Session'));
-		assert.ok(serverAction1);
-		await serverAction1.select();
-
-		// Set server2 to workspace
-		const actions2 = service.getPreConfirmActions(ref2);
-		const serverAction2 = actions2.find(a => a.label.includes('Server 2') && a.label.includes('Workspace'));
-		assert.ok(serverAction2);
-		await serverAction2.select();
-
-		// Verify they're independent
-		const result1 = service.getPreConfirmAction(ref1);
-		const result2 = service.getPreConfirmAction(ref2);
-
-		assert.deepStrictEqual(result1, { type: ToolConfirmKind.LmServicePerTool, scope: 'session' });
-		assert.deepStrictEqual(result2, { type: ToolConfirmKind.LmServicePerTool, scope: 'workspace' });
 	});
 
 	test('actions return true when select is called', async () => {

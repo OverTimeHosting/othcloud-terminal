@@ -41,7 +41,6 @@ export const dirs = [
 	'extensions/notebook-renderers',
 	'extensions/npm',
 	'extensions/othcloud-discord-presence',
-	'extensions/othcloud-mcp',
 	'extensions/php-language-features',
 	'extensions/references-view',
 	'extensions/search-result',
@@ -59,7 +58,6 @@ export const dirs = [
 	'test/integration/browser',
 	'test/monaco',
 	'test/smoke',
-	'test/mcp',
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',
 ];

@@ -73,7 +73,6 @@ import { IExtHostLanguageModels } from './extHostLanguageModels.js';
 import { ExtHostLanguages } from './extHostLanguages.js';
 import { IExtHostLocalizationService } from './extHostLocalizationService.js';
 import { IExtHostManagedSockets } from './extHostManagedSockets.js';
-import { IExtHostMpcService } from './extHostMcp.js';
 import { ExtHostMessageService } from './extHostMessageService.js';
 import { ExtHostNotebookController } from './extHostNotebook.js';
 import { ExtHostNotebookDocumentSaveParticipant } from './extHostNotebookDocumentSaveParticipant.js';
@@ -158,7 +157,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostProgress = accessor.get(IExtHostProgress);
 	const extHostAuthentication = accessor.get(IExtHostAuthentication);
 	const extHostLanguageModels = accessor.get(IExtHostLanguageModels);
-	const extHostMcp = accessor.get(IExtHostMpcService);
 	const extHostDataChannels = accessor.get(IExtHostDataChannels);
 	const extHostMeteredConnection = accessor.get(IExtHostMeteredConnection);
 
@@ -242,8 +240,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostStatusBar = rpcProtocol.set(ExtHostContext.ExtHostStatusBar, new ExtHostStatusBar(rpcProtocol, extHostCommands.converter));
 	const extHostSpeech = rpcProtocol.set(ExtHostContext.ExtHostSpeech, new ExtHostSpeech(rpcProtocol));
 	const extHostEmbeddings = rpcProtocol.set(ExtHostContext.ExtHostEmbeddings, new ExtHostEmbeddings(rpcProtocol));
-
-	rpcProtocol.set(ExtHostContext.ExtHostMcp, accessor.get(IExtHostMpcService));
 
 	// Check that no named customers are missing
 	const expected = Object.values<ProxyIdentifier<any>>(ExtHostContext);
@@ -1737,21 +1733,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			registerIgnoredFileProvider(provider: vscode.LanguageModelIgnoredFileProvider) {
 				return extHostLanguageModels.registerIgnoredFileProvider(extension, provider);
 			},
-			registerMcpServerDefinitionProvider(id, provider) {
-				return extHostMcp.registerMcpConfigurationProvider(extension, id, provider);
-			},
-			onDidChangeMcpServerDefinitions: (...args) => {
-				checkProposedApiEnabled(extension, 'mcpServerDefinitions');
-				return _asExtensionEvent(extHostMcp.onDidChangeMcpServerDefinitions)(...args);
-			},
-			get mcpServerDefinitions() {
-				checkProposedApiEnabled(extension, 'mcpServerDefinitions');
-				return extHostMcp.mcpServerDefinitions;
-			},
-			startMcpGateway() {
-				checkProposedApiEnabled(extension, 'mcpServerDefinitions');
-				return extHostMcp.startMcpGateway();
-			},
 			onDidChangeChatRequestTools(...args) {
 				checkProposedApiEnabled(extension, 'chatParticipantAdditions');
 				return _asExtensionEvent(extHostChatAgents2.onDidChangeChatRequestTools)(...args);
@@ -2087,11 +2068,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			AISearchKeyword: AISearchKeyword,
 			TextSearchCompleteMessageTypeNew: TextSearchCompleteMessageType,
 			ChatErrorLevel: extHostTypes.ChatErrorLevel,
-			McpHttpServerDefinition: extHostTypes.McpHttpServerDefinition,
-			McpHttpServerDefinition2: extHostTypes.McpHttpServerDefinition,
-			McpStdioServerDefinition: extHostTypes.McpStdioServerDefinition,
-			McpStdioServerDefinition2: extHostTypes.McpStdioServerDefinition,
-			McpToolAvailability: extHostTypes.McpToolAvailability,
 			McpToolInvocationContentData: extHostTypes.McpToolInvocationContentData,
 			SettingsSearchResultKind: extHostTypes.SettingsSearchResultKind,
 			ChatTodoStatus: extHostTypes.ChatTodoStatus,

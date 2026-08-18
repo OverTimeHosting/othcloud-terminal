@@ -347,15 +347,6 @@
 					"endsPattern": "(Local|Network):.*"
 				}
 			}
-		},
-		{
-			"label": "Launch MCP Server",
-			"type": "shell",
-			"command": "cd test/mcp && npm run compile && npm run start-http",
-			"isBackground": true,
-			"problemMatcher": [
-				"$tsc"
-			]
 		}
 	]
 }

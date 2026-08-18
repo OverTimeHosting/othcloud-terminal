@@ -87,12 +87,40 @@
 	min-width: 0;
 }
 
+.othcloud-account-name-row {
+	display: flex;
+	align-items: center;
+	gap: 4px 6px;
+	min-width: 0;
+	/* The sidebar is often narrow; let the role badge drop to its own line
+		instead of truncating the user's name down to an ellipsis. */
+	flex-wrap: wrap;
+}
+
 .othcloud-account-name {
+	flex: 1 1 auto;
+	min-width: 4em;
 	font-size: 13px;
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* Role badge (Owner / Admin / Developer / …). Theme tokens only, so it follows
+	whatever color theme is active. */
+.othcloud-account-role {
+	flex: 0 0 auto;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	padding: 2px 6px;
+	border-radius: 8px;
+	white-space: nowrap;
+	color: var(--vscode-badge-foreground);
+	background-color: var(--vscode-badge-background);
 }
 
 .othcloud-account-email {

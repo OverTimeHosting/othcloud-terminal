@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { localize } from '../../../../nls.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -17,14 +18,43 @@ export interface IOthcloudUser {
 	readonly email: string;
 	readonly name: string;
 	readonly avatarUrl?: string;
-	/** Raw `users_temp.role` — e.g. "user", "admin", "owner", "developer". */
+	/** Raw `users_temp.role` - e.g. "user", "admin", "owner", "developer". */
 	readonly role?: string;
-	/** Best org-level role for this user — owner | admin | member. */
+	/** Best org-level role for this user - owner | admin | member. */
 	readonly orgRole?: string;
 	readonly isOwner?: boolean;
 	readonly isAdmin?: boolean;
 	readonly isPlatformAdmin?: boolean;
 	readonly isDeveloper?: boolean;
+}
+
+/**
+ * Human-readable label for the signed-in user's highest role, or `undefined`
+ * when they are a plain member. Highest wins: platform admin > owner > admin >
+ * developer. Falls back to the raw `orgRole`/`role` string from the API so a
+ * role the client doesn't know about still shows something useful.
+ */
+export function getOthcloudRoleLabel(user: IOthcloudUser | undefined): string | undefined {
+	if (!user) {
+		return undefined;
+	}
+	if (user.isPlatformAdmin) {
+		return localize('othcloud.role.platformAdmin', 'Platform Admin');
+	}
+	if (user.isOwner) {
+		return localize('othcloud.role.owner', 'Owner');
+	}
+	if (user.isAdmin) {
+		return localize('othcloud.role.admin', 'Admin');
+	}
+	if (user.isDeveloper) {
+		return localize('othcloud.role.developer', 'Developer');
+	}
+	const raw = user.orgRole ?? user.role;
+	if (!raw || raw.toLowerCase() === 'user' || raw.toLowerCase() === 'member') {
+		return undefined;
+	}
+	return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 /**

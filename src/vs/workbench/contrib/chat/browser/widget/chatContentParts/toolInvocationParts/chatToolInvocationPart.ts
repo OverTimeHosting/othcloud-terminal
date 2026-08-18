@@ -6,10 +6,10 @@
 import * as dom from '../../../../../../../base/browser/dom.js';
 import { Emitter } from '../../../../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../../../../base/common/lifecycle.js';
-import { autorun, derived } from '../../../../../../../base/common/observable.js';
+import { autorun } from '../../../../../../../base/common/observable.js';
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js';
 import { IMarkdownRenderer } from '../../../../../../../platform/markdown/browser/markdownRenderer.js';
-import { IChatToolInvocation, IChatToolInvocationSerialized, ToolConfirmKind } from '../../../../common/chatService/chatService.js';
+import { IChatToolInvocation, IChatToolInvocationSerialized } from '../../../../common/chatService/chatService.js';
 import { IChatRendererContent } from '../../../../common/model/chatViewModel.js';
 import { IChatTodoListService } from '../../../../common/tools/chatTodoListService.js';
 import { CodeBlockModelCollection } from '../../../../common/widget/codeBlockModelCollection.js';
@@ -20,7 +20,6 @@ import { IChatContentPart, IChatContentPartRenderContext } from '../chatContentP
 import { CollapsibleListPool } from '../chatReferencesContentPart.js';
 import { ExtensionsInstallConfirmationWidgetSubPart } from './chatExtensionsInstallToolSubPart.js';
 import { ChatInputOutputMarkdownProgressPart } from './chatInputOutputMarkdownProgressPart.js';
-import { ChatMcpAppSubPart, IMcpAppRenderData } from './chatMcpAppSubPart.js';
 import { ChatResultListSubPart } from './chatResultListSubPart.js';
 import { ChatSimpleToolProgressPart } from './chatSimpleToolProgressPart.js';
 import { ChatTerminalToolConfirmationSubPart } from './chatTerminalToolConfirmationSubPart.js';
@@ -36,11 +35,7 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 	public readonly domNode: HTMLElement;
 
 	public get codeblocks(): IChatCodeBlockInfo[] {
-		const codeblocks = this.subPart?.codeblocks ?? [];
-		if (this.mcpAppPart) {
-			codeblocks.push(...this.mcpAppPart.codeblocks);
-		}
-		return codeblocks;
+		return this.subPart?.codeblocks ?? [];
 	}
 
 	public get codeblocksPartId(): string | undefined {
@@ -48,7 +43,6 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 	}
 
 	private subPart!: BaseChatToolInvocationSubPart;
-	private mcpAppPart: ChatMcpAppSubPart | undefined;
 
 	private readonly _onDidRemount = this._register(new Emitter<void>());
 
@@ -126,34 +120,6 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 
 			partStore.add(this.subPart.onNeedsRerender(render));
 		};
-
-		const mcpAppRenderData = this.getMcpAppRenderData();
-		if (mcpAppRenderData) {
-			const shouldRender = derived(r => {
-				const outcome = IChatToolInvocation.executionConfirmedOrDenied(toolInvocation, r);
-				return !!outcome && outcome.type !== ToolConfirmKind.Denied && outcome.type !== ToolConfirmKind.Skipped;
-			});
-
-			let appDomNode: HTMLElement = document.createElement('div');
-			this.domNode.appendChild(appDomNode);
-
-			this._register(autorun(r => {
-				if (shouldRender.read(r)) {
-					this.mcpAppPart = r.store.add(this.instantiationService.createInstance(
-						ChatMcpAppSubPart,
-						this.toolInvocation,
-						this._onDidRemount.event,
-						context,
-						mcpAppRenderData,
-					));
-					appDomNode.replaceWith(this.mcpAppPart.domNode);
-					appDomNode = this.mcpAppPart.domNode;
-				} else {
-					this.mcpAppPart = undefined;
-					dom.clearNode(appDomNode);
-				}
-			}));
-		}
 
 		render();
 	}
@@ -242,31 +208,6 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 		}
 
 		return this.instantiationService.createInstance(ChatToolProgressSubPart, this.toolInvocation, this.context, this.renderer, this.announcedToolProgressKeys);
-	}
-
-	/**
-	 * Gets MCP App render data if this tool invocation has MCP App UI.
-	 * Returns data from either:
-	 * - toolSpecificData.mcpAppData (for in-progress tools)
-	 * - result details mcpOutput (for completed tools)
-	 */
-	private getMcpAppRenderData(): IMcpAppRenderData | undefined {
-		const toolSpecificData = this.toolInvocation.toolSpecificData;
-		if (toolSpecificData?.kind === 'input' && toolSpecificData.mcpAppData) {
-			const rawInput = typeof toolSpecificData.rawInput === 'string'
-				? toolSpecificData.rawInput
-				: JSON.stringify(toolSpecificData.rawInput, null, 2);
-
-			return {
-				resourceUri: toolSpecificData.mcpAppData.resourceUri,
-				serverDefinitionId: toolSpecificData.mcpAppData.serverDefinitionId,
-				collectionId: toolSpecificData.mcpAppData.collectionId,
-				input: rawInput,
-				sessionResource: this.context.element.sessionResource,
-			};
-		}
-
-		return undefined;
 	}
 
 	onDidRemount(): void {

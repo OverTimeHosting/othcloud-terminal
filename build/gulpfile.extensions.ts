@@ -62,7 +62,6 @@ const compilations = [
 	'extensions/notebook-renderers/tsconfig.json',
 	'extensions/npm/tsconfig.json',
 	'extensions/othcloud-discord-presence/tsconfig.json',
-	'extensions/othcloud-mcp/tsconfig.json',
 	'extensions/php-language-features/tsconfig.json',
 	'extensions/references-view/tsconfig.json',
 	'extensions/search-result/tsconfig.json',

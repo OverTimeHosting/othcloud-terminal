@@ -25,6 +25,8 @@ export const all = Object.freeze<string[]>([
 	'!cli/**/*',
 	'!out*/**',
 	'!extensions/**/out*/**',
+	// Vendored, pre-built third-party extension: not our source to lint or format.
+	'!extensions/eamodio.gitlens/**',
 	'!test/**/out/**',
 	'!**/node_modules/**',
 	'!**/*.js.map',

@@ -33,7 +33,7 @@
     }
   },
   "contributes": {
-    "_note_othcloud_disabled_authentication": "GitHub authentication provider registrations removed for OTHCloud — sign-in is exclusively through the Othcloud Account.",
+    "_note_othcloud_disabled_authentication": "GitHub provider registrations removed for OTHCloud \u2014 the OTHCloud account owns the `github` provider id (see othcloudGithubAuthProvider) so there is only ever one sign-in.",
     "configuration": [
       {
         "title": "%config.github-enterprise.title%",
@@ -51,7 +51,7 @@
           },
           "github-authentication.preferDeviceCodeFlow": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "scope": "application",
             "markdownDescription": "%config.github-authentication.preferDeviceCodeFlow.description%"
           }
