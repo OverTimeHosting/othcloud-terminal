@@ -198,6 +198,24 @@ jobs:
             .vscode/extensions/*/node_modules
           key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
+      # npm bundles node-gyp 11.2.0, which cannot identify the Visual Studio
+      # that ships on the current windows-latest image: its PowerShell probe
+      # overflows node-gyp's stdio buffer (ERR_CHILD_PROCESS_STDIO_MAXBUFFER),
+      # and the directory fallback then reports
+      # `unknown version "undefined" found at ...\Microsoft Visual Studio\18\
+      # Enterprise` and gives up. Every native module (@vscode/native-watchdog,
+      # spdlog, sqlite3 …) then fails to build.
+      #
+      # Point npm at a current node-gyp instead of pinning the runner image —
+      # runner images get retired, and this keeps working across the next
+      # Visual Studio too.
+      - name: Use a node-gyp that knows this Visual Studio
+        shell: bash
+        run: |
+          npm install -g node-gyp@13
+          echo "npm_config_node_gyp=$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
+          node-gyp --version
+
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
         env:
@@ -581,12 +599,17 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [bump-version, package, package-linux-reh, package-linux-desktop]
+    # Publish whatever built. Requiring every platform meant a Windows
+    # toolchain problem threw away a completed Linux build and published
+    # nothing at all — the version had already been bumped, so the artifacts
+    # existed, were correct, and were unreachable to everyone but whoever
+    # thought to dig them out of the run. The per-platform downloads below are
+    # individually optional; a release simply contains the platforms that
+    # succeeded, and the notes list exactly those.
     if: |
       always() &&
       needs.bump-version.result == 'success' &&
-      needs.package.result == 'success' &&
       needs.package-linux-reh.result == 'success' &&
-      needs.package-linux-desktop.result == 'success' &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.release)
@@ -599,6 +622,7 @@ jobs:
         with:
           name: othcloud-terminal-win32-x64-user-setup
           path: ./release-assets
+        continue-on-error: true
 
       - name: Download Linux REH tarball (for SSH)
         uses: actions/download-artifact@v4
@@ -617,9 +641,40 @@ jobs:
         with:
           name: othcloud-terminal-linux-x64-deb
           path: ./release-assets
+        continue-on-error: true
 
       - name: List release assets
         run: ls -la ./release-assets
+
+      # Built from what is actually on disk, not from a fixed list. A
+      # hardcoded list outlives the build that was supposed to produce it and
+      # ends up advertising downloads that 404.
+      - name: Describe what built
+        id: notes
+        run: |
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            echo "Automated release built from commit ${{ needs.bump-version.outputs.sha }}."
+            echo
+            echo "## Downloads"
+            cd ./release-assets
+            for f in *; do
+              case "$f" in
+                *win32-x64-user-setup.exe) label="Windows desktop installer" ;;
+                *_amd64.deb)               label="Linux desktop (.deb)" ;;
+                *server-web-linux-x64-*)   label="Linux web server (browser workbench, used by OTHCloud)" ;;
+                *server-linux-x64-*)       label="Linux remote server (used by Remote-SSH)" ;;
+                *)                         label="$f" ;;
+              esac
+              echo "- **$label:** \`$f\`"
+            done
+            cd ..
+            for want in "win32-x64-user-setup.exe:Windows desktop installer" "_amd64.deb:Linux desktop (.deb)"; do
+              pat="${want%%:*}"; label="${want#*:}"
+              ls ./release-assets | grep -q -- "$pat" || echo "- _$label did not build for this release._"
+            done
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         env:
@@ -629,12 +684,5 @@ jobs:
           gh release create "$tag" \
             --repo "${{ github.repository }}" \
             --title "Othcloud Terminal ${{ needs.bump-version.outputs.version }}" \
-            --notes "Automated release built from commit ${{ needs.bump-version.outputs.sha }}.
-
-          ## Downloads
-          - **Windows desktop installer:** \`othcloud-terminal-${{ needs.bump-version.outputs.version }}-win32-x64-user-setup.exe\`
-          - **Linux desktop (.deb):** \`othcloud-terminal_${{ needs.bump-version.outputs.version }}_amd64.deb\`
-          - **Linux remote server (used by Remote-SSH):** \`othcloud-terminal-server-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz\`
-          - **Linux web server (browser workbench, used by OTHCloud):** \`othcloud-terminal-server-web-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz\`
-          " \
+            --notes "${{ steps.notes.outputs.body }}" \
             ./release-assets/*
