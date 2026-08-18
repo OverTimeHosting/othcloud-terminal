@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       package_linux_reh:
-        description: "Build & upload the Linux x64 remote server (REH) for remote-SSH (~30 min)"
+        description: "Build & upload the Linux x64 servers: REH (remote-SSH) + REH-web (browser workbench) (~45 min)"
         type: boolean
         default: false
       package_linux_desktop:
@@ -273,7 +273,7 @@ jobs:
           retention-days: 14
 
   package-linux-reh:
-    name: Package Linux x64 Remote Server (REH)
+    name: Package Linux x64 Servers (REH + REH-web)
     if: |
       always() &&
       (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') &&
@@ -283,7 +283,10 @@ jobs:
       )
     needs: [bump-version]
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Two gulp targets in one job. The second is much cheaper than the first —
+    # they share the compiled `out-build` — but 90 minutes no longer leaves
+    # headroom for a cold node_modules cache on top of both.
+    timeout-minutes: 150
     env:
       VSCODE_ARCH: x64
       npm_config_arch: x64
@@ -378,6 +381,19 @@ jobs:
       - name: Build remote server (vscode-reh-linux-x64-min)
         run: npm run gulp vscode-reh-linux-x64-min
 
+      # The REH build above is the extension host only: it answers the
+      # remote-SSH protocol and returns 404 for every HTTP path, so there is no
+      # workbench to open in a browser. `reh-web` is the same server plus the
+      # web workbench assets (build/gulpfile.reh.ts builds both from one
+      # BUILD_TARGETS list); it is what serves the editor UI over HTTP, and
+      # what OTHCloud embeds in a website's Editor tab.
+      #
+      # Built in this job rather than its own so it reuses the checkout,
+      # node_modules cache, built-in extensions and — most of the cost —
+      # the already-compiled sources.
+      - name: Build web server (vscode-reh-web-linux-x64-min)
+        run: npm run gulp vscode-reh-web-linux-x64-min
+
       - name: Read version
         id: ver
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
@@ -404,6 +420,21 @@ jobs:
         with:
           name: othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
           path: .build/upload/othcloud-terminal-server-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage web server output (gulp emits it to ../vscode-reh-web-linux-x64)
+        run: |
+          cp -r ../vscode-reh-web-linux-x64 .build/upload/vscode-reh-web-linux-x64
+          tar -czf ".build/upload/othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz" \
+            -C .build/upload/vscode-reh-web-linux-x64 .
+          ls -la .build/upload
+
+      - name: Upload Linux web server (.tar.gz for browser workbench)
+        uses: actions/upload-artifact@v4
+        with:
+          name: othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
+          path: .build/upload/othcloud-terminal-server-web-linux-x64-${{ steps.ver.outputs.version }}.tar.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -575,6 +606,12 @@ jobs:
           name: othcloud-terminal-server-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz
           path: ./release-assets
 
+      - name: Download Linux web server tarball (browser workbench)
+        uses: actions/download-artifact@v4
+        with:
+          name: othcloud-terminal-server-web-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz
+          path: ./release-assets
+
       - name: Download Linux desktop .deb
         uses: actions/download-artifact@v4
         with:
@@ -598,5 +635,6 @@ jobs:
           - **Windows desktop installer:** \`othcloud-terminal-${{ needs.bump-version.outputs.version }}-win32-x64-user-setup.exe\`
           - **Linux desktop (.deb):** \`othcloud-terminal_${{ needs.bump-version.outputs.version }}_amd64.deb\`
           - **Linux remote server (used by Remote-SSH):** \`othcloud-terminal-server-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz\`
+          - **Linux web server (browser workbench, used by OTHCloud):** \`othcloud-terminal-server-web-linux-x64-${{ needs.bump-version.outputs.version }}.tar.gz\`
           " \
             ./release-assets/*
