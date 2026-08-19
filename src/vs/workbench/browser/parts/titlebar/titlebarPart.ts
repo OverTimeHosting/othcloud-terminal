@@ -12,7 +12,7 @@ import { MenuBarVisibility, getTitleBarStyle, getMenuBarVisibility, hasCustomTit
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { StandardMouseEvent } from '../../../../base/browser/mouseEvent.js';
 import { IConfigurationService, IConfigurationChangeEvent } from '../../../../platform/configuration/common/configuration.js';
-import { DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { TITLE_BAR_ACTIVE_BACKGROUND, TITLE_BAR_ACTIVE_FOREGROUND, TITLE_BAR_INACTIVE_FOREGROUND, TITLE_BAR_INACTIVE_BACKGROUND, TITLE_BAR_BORDER, WORKBENCH_BACKGROUND } from '../../../common/theme.js';
@@ -29,6 +29,7 @@ import { Action2, IMenu, IMenuService, MenuId, registerAction2 } from '../../../
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { WindowTitle } from './windowTitle.js';
+import { acquireAuxiliaryWindowIdentity, IAuxiliaryWindowIdentity, releaseAuxiliaryWindowIdentity } from './auxiliaryWindowIdentity.js';
 import { CommandCenterControl } from './commandCenterControl.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { WorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
@@ -287,6 +288,9 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	private readonly isAuxiliary: boolean;
 	private isCompact = false;
 
+	private readonly windowIdentity: IAuxiliaryWindowIdentity | undefined;
+	private windowIdentityBadge: HTMLElement | undefined;
+
 	private readonly isCompactContextKey: IContextKey<boolean>;
 
 	private readonly windowTitle: WindowTitle;
@@ -311,6 +315,14 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		super(id, { hasTitle: false }, themeService, storageService, layoutService);
 
 		this.isAuxiliary = targetWindow.vscodeWindowId !== mainWindow.vscodeWindowId;
+
+		// othcloud: give every auxiliary window a stable number and accent color so that multiple
+		// pulled out windows can be told apart, no matter how their editor groups are split.
+		if (this.isAuxiliary) {
+			const windowId = targetWindow.vscodeWindowId;
+			this.windowIdentity = acquireAuxiliaryWindowIdentity(windowId);
+			this._register(toDisposable(() => releaseAuxiliaryWindowIdentity(windowId)));
+		}
 
 		this.isCompactContextKey = IsCompactTitleBarContext.bindTo(this.contextKeyService);
 
@@ -459,6 +471,14 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 			(!isMacintosh || isWeb)
 		) {
 			this.installMenubar();
+		}
+
+		// Window identity badge (othcloud): auxiliary windows only
+		if (this.windowIdentity) {
+			this.windowIdentityBadge = append(this.centerContent, $('div.window-identity'));
+			this.windowIdentityBadge.textContent = String(this.windowIdentity.index);
+			this.windowIdentityBadge.title = this.windowIdentity.label;
+			this.windowIdentityBadge.setAttribute('aria-label', this.windowIdentity.label);
 		}
 
 		// Title
@@ -769,6 +789,17 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 			const titleBorder = this.getColor(TITLE_BAR_BORDER);
 			this.element.style.borderBottom = titleBorder ? `1px solid ${titleBorder}` : '';
+
+			// othcloud: paint the window accent as a badge and as a line along the bottom of the
+			// title bar. An inset shadow is used so that the accent never affects the layout.
+			if (this.windowIdentity) {
+				this.element.style.boxShadow = `inset 0 -2px 0 0 ${this.windowIdentity.accentColor}`;
+
+				if (this.windowIdentityBadge) {
+					this.windowIdentityBadge.style.backgroundColor = this.windowIdentity.accentColor;
+					this.windowIdentityBadge.style.color = this.windowIdentity.accentForegroundColor;
+				}
+			}
 		}
 	}
 
@@ -858,7 +889,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 			this.customMenubar.value.layout(menubarDimension);
 		}
 
-		const hasCenter = this.isCommandCenterVisible || this.title.textContent !== '';
+		const hasCenter = this.isCommandCenterVisible || this.title.textContent !== '' || !!this.windowIdentity;
 		this.rootContainer.classList.toggle('has-center', hasCenter);
 	}
 

@@ -132,6 +132,31 @@
 	/* see #55435 */
 }
 
+/* Window identity badge (othcloud): auxiliary windows carry a numbered accent badge, and the
+   same accent is painted along the bottom of their title bar (see titlebarPart.ts) so that
+   several pulled out windows can be told apart at a glance. */
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-identity {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 17px;
+	height: 17px;
+	padding: 0 5px;
+	margin-right: 6px;
+	border-radius: 9px;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 17px;
+	white-space: nowrap;
+	cursor: default;
+}
+
+.monaco-workbench .part.titlebar.inactive > .titlebar-container > .titlebar-center > .window-identity {
+	opacity: 0.6;
+}
+
 .monaco-workbench .part.titlebar > .titlebar-container .monaco-toolbar .actions-container {
 	gap: 4px;
 }
