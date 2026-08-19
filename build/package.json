@@ -79,6 +79,7 @@
   "overrides": {
     "path-scurry": {
       "lru-cache": "11.2.1"
-    }
+    },
+    "node-gyp": "^12.4.0"
   }
 }
