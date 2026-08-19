@@ -192,23 +192,32 @@ jobs:
             .vscode/extensions/*/node_modules
           key: nm-${{ runner.os }}-x64-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'build/vite/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json', 'test/**/package-lock.json', '.vscode/extensions/**/package-lock.json', 'build/npm/dirs.ts', '.nvmrc') }}
 
-      # npm bundles node-gyp 11.2.0, which cannot identify the Visual Studio
-      # that ships on the current windows-latest image: its PowerShell probe
-      # overflows node-gyp's stdio buffer (ERR_CHILD_PROCESS_STDIO_MAXBUFFER),
-      # and the directory fallback then reports
-      # `unknown version "undefined" found at ...\Microsoft Visual Studio\18\
-      # Enterprise` and gives up. Every native module (@vscode/native-watchdog,
-      # spdlog, sqlite3 …) then fails to build.
+      # The node-gyp that npm bundles (11.2.0 for the Node in .nvmrc) cannot
+      # identify the Visual Studio on the current windows-latest image: its
+      # PowerShell probe overflows node-gyp's stdio buffer
+      # (ERR_CHILD_PROCESS_STDIO_MAXBUFFER), and the directory fallback then
+      # reports `unknown version "undefined" found at ...\Microsoft Visual
+      # Studio\18\Enterprise` and gives up. Every native module
+      # (@vscode/deviceid, native-watchdog, spdlog, sqlite3 …) fails to build.
       #
-      # Point npm at a current node-gyp instead of pinning the runner image —
-      # runner images get retired, and this keeps working across the next
-      # Visual Studio too.
-      - name: Use a node-gyp that knows this Visual Studio
+      # VS 2026 (v18) support landed in node-gyp 12.1.0, so the fix is to get a
+      # newer node-gyp in front of npm. Installing node-gyp globally and
+      # exporting npm_config_node_gyp does NOT work: npm's run-script overwrites
+      # npm_config_node_gyp with its own bundled copy for every lifecycle
+      # script, so the global install is silently ignored (that is why the build
+      # still reported `using node-gyp@11.2.0` after that was tried). Upgrading
+      # npm itself is what actually replaces the node-gyp that gets used.
+      #
+      # npm 11 (currently 11.19.0, bundling node-gyp ^12.4.0) is the newest line
+      # whose engines still accept the Node in .nvmrc — npm 12 requires
+      # Node >=22.22.2. Left floating on the 11.x line so the bundled node-gyp
+      # keeps up with future Visual Studio releases without pinning the image.
+      - name: Use an npm whose bundled node-gyp knows this Visual Studio
         shell: bash
         run: |
-          npm install -g node-gyp@13
-          echo "npm_config_node_gyp=$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
-          node-gyp --version
+          npm install -g npm@11
+          npm --version
+          node "$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js" --version
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
