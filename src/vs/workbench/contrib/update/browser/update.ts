@@ -17,7 +17,7 @@ import { INotificationService, INotificationHandle, NotificationPriority, Severi
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
-import { isMacintosh, isWeb, isWindows } from '../../../../base/common/platform.js';
+import { isLinux, isMacintosh, isWeb, isWindows } from '../../../../base/common/platform.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { RawContextKey, IContextKey, IContextKeyService, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { MenuRegistry, MenuId, registerAction2, Action2 } from '../../../../platform/actions/common/actions.js';
@@ -415,7 +415,12 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			return;
 		}
 
-		if (!this.shouldShowNotification()) {
+		// othcloud: on Linux this state is only ever reached because the user
+		// asked for the download, so the follow-up prompt is expected. The
+		// throttle below exists to keep unsolicited "there is an update"
+		// notifications rare, not to swallow a step of an install already
+		// underway.
+		if (!isLinux && !this.shouldShowNotification()) {
 			return;
 		}
 
@@ -461,7 +466,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 					})
 				]
 			});
-		} else if ((isWindows && this.productService.target !== 'user') || this.shouldShowNotification()) {
+		} else if ((isWindows && this.productService.target !== 'user') || isLinux || this.shouldShowNotification()) {
 
 			const actions = [{
 				label: nls.localize('updateNow', "Update Now"),
