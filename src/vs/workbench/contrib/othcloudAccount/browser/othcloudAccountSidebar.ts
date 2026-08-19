@@ -30,7 +30,7 @@ import {
 	ViewContainerLocation,
 } from '../../../common/views.js';
 import { getOthcloudRoleLabel, IOthcloudAccountService, IOthcloudUser } from '../common/othcloudAccountService.js';
-import { IOthcloudServiceRow, IOthcloudServices, OTHCLOUD_BASE_URL, OthcloudAccountApiError, OthcloudAccountClient } from './othcloudAccountClient.js';
+import { getOthcloudBaseUrl, IOthcloudServiceRow, IOthcloudServices, OthcloudAccountApiError, OthcloudAccountClient } from './othcloudAccountClient.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
@@ -361,7 +361,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 	private async openInBrowserView(path: string): Promise<void> {
 		const absolute = path.startsWith('http://') || path.startsWith('https://')
 			? path
-			: OTHCLOUD_BASE_URL + (path.startsWith('/') ? path : '/' + path);
+			: getOthcloudBaseUrl() + (path.startsWith('/') ? path : '/' + path);
 		const targetGroup = this.editorGroupsService.activeGroup;
 		await this.editorService.openEditor(
 			{

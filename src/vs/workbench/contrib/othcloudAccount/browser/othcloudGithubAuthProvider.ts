@@ -17,7 +17,7 @@ import {
 	IAuthenticationService,
 } from '../../../services/authentication/common/authentication.js';
 import { IOthcloudAccountService } from '../common/othcloudAccountService.js';
-import { OTHCLOUD_BASE_URL, OthcloudAccountApiError } from './othcloudAccountClient.js';
+import { getOthcloudBaseUrl, OthcloudAccountApiError } from './othcloudAccountClient.js';
 
 // Registered as the canonical `github` provider id so every GitHub-using surface
 // in the workbench - GitLens, the GitHub Pull Requests extension, Settings Sync -
@@ -182,7 +182,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 
 		let response: IGithubTokenResponse;
 		try {
-			const res = await fetch(`${OTHCLOUD_BASE_URL}/api/desktop/github-token`, {
+			const res = await fetch(`${getOthcloudBaseUrl()}/api/desktop/github-token`, {
 				method: 'GET',
 				headers: { 'Authorization': `Bearer ${token}` },
 			});

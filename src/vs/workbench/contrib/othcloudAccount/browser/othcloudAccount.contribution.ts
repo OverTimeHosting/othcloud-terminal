@@ -17,10 +17,11 @@ import { BrowserViewUri } from '../../../../platform/browserView/common/browserV
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IOthcloudAccountService, OthcloudAccountService } from '../common/othcloudAccountService.js';
 import { OthcloudAccountUrlHandler } from './othcloudAccountUrlHandler.js';
+import { OthcloudEmbeddedSession } from './othcloudEmbeddedSession.js';
 import { OthcloudAccountMenuContribution } from './othcloudAccountMenu.js';
 import { OthcloudGithubAuthProvider } from './othcloudGithubAuthProvider.js';
 import { registerOthcloudAccountSidebar } from './othcloudAccountSidebar.js';
-import { OTHCLOUD_BASE_URL } from './othcloudAccountClient.js';
+import { getOthcloudBaseUrl } from './othcloudAccountClient.js';
 
 const SIGN_IN_COMMAND = 'othcloud.account.signIn';
 const SIGN_OUT_COMMAND = 'othcloud.account.signOut';
@@ -39,6 +40,17 @@ registerWorkbenchContribution2(
 	OthcloudAccountMenuContribution.ID,
 	OthcloudAccountMenuContribution,
 	WorkbenchPhase.AfterRestored,
+);
+
+// `BlockRestore`, for the same reason as the GitHub provider below: the sidebar
+// and the accounts menu read the signed-in state as they build themselves, and
+// signing in later means they render the "Sign in to OTHCloud" card first and
+// swap it out underneath the user. The work is a single same-origin fetch that
+// is kicked off and not awaited, so registering early costs nothing.
+registerWorkbenchContribution2(
+	OthcloudEmbeddedSession.ID,
+	OthcloudEmbeddedSession,
+	WorkbenchPhase.BlockRestore,
 );
 
 // Must be `BlockRestore`: this provider owns the canonical `github` id, and
@@ -102,7 +114,7 @@ registerAction2(class SignInAction extends Action2 {
 		const editorGroupsService = accessor.get(IEditorGroupsService);
 		const targetGroup = editorGroupsService.activeGroup;
 		await editorService.openEditor(
-			{ resource: BrowserViewUri.forUrl(OTHCLOUD_BASE_URL + '/desktop-pair'), options: { pinned: true } },
+			{ resource: BrowserViewUri.forUrl(getOthcloudBaseUrl() + '/desktop-pair'), options: { pinned: true } },
 			targetGroup.id,
 		);
 		if (!targetGroup.isLocked) {
@@ -130,7 +142,7 @@ registerAction2(class LinkGithubAction extends Action2 {
 		const editorGroupsService = accessor.get(IEditorGroupsService);
 		const targetGroup = editorGroupsService.activeGroup;
 		await editorService.openEditor(
-			{ resource: BrowserViewUri.forUrl(OTHCLOUD_BASE_URL + '/dashboard/settings/git/github'), options: { pinned: true } },
+			{ resource: BrowserViewUri.forUrl(getOthcloudBaseUrl() + '/dashboard/settings/git/github'), options: { pinned: true } },
 			targetGroup.id,
 		);
 		if (!targetGroup.isLocked) {

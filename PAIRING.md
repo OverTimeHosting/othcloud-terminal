@@ -141,6 +141,63 @@ Because an installation token can only create repos under an **organization**
 (not a personal user account), the action surfaces the resolved owner so the
 user knows where the repo will land.
 
+## Embedded (web) sign-in — no pairing at all
+
+The flow above needs a protocol handler and a native window. The **web build**
+(`othcloud-terminal-server-web-*`, which othcloud.xyz runs next to a customer's
+website for the Editor tab) has neither, so the sidebar there could only ever
+show a "Sign in" button with nowhere to go — to someone who is demonstrably
+already signed in, since they are looking at the editor *through* their
+othcloud.xyz session.
+
+So when othcloud.xyz is the one serving the workbench, it hands the session
+over directly.
+
+### `GET <serverBasePath>/__othcloud/session`
+
+**Served by:** othcloud.xyz's editor proxy, NOT by this server. The workbench
+is mounted at `/_editor/<composeId>/` behind a proxy that authenticates every
+request against the panel session, so this path never reaches the container.
+
+**Auth:** the panel's own session cookie, same-origin. There is no bearer to
+send yet — that is the point.
+
+**Response:** `200 OK`
+```json
+{
+  "token": "<bearer, as minted by /api/desktop/token>",
+  "user": { "id": "...", "email": "...", "name": "...", "avatarUrl": "...", "isOwner": true },
+  "baseUrl": ""
+}
+```
+
+`baseUrl` is where the client should send `/api/desktop/*` calls. The empty
+string means "same origin as this workbench" — necessary because the web build
+has no environment to read (`base/common/process` hardcodes `env` to `{}` in
+web), so its compiled-in default is always `https://othcloud.xyz`, which is
+wrong for every other panel including localhost.
+
+**`204 No Content`** for anything else — not signed in, not their website,
+couldn't mint. The client treats it as "carry on signed out"; a 401 would be
+noise, since the page it is rendering in only exists because the panel already
+authenticated the person.
+
+**Behavior:**
+- The token is a normal `desktop_token` row, but with `expires_at` set (12h)
+  and `name = "Othcloud Editor (web)"`. It is short-lived because it is handed
+  to a BROWSER and lives in IndexedDB where script can read it, unlike the
+  desktop app's, which sits in OS secret storage. It can afford to be: the
+  editor seeds a fresh one every time it is opened.
+- Scoped to the VIEWER, not the container. Two people with access to the same
+  website get their own identity, and nothing is written to the customer's box.
+- Minting also prunes that user's expired/revoked web-editor tokens.
+
+Client side: `OthcloudEmbeddedSession`
+(`src/vs/workbench/contrib/othcloudAccount/browser/othcloudEmbeddedSession.ts`),
+registered at `WorkbenchPhase.BlockRestore` so the sidebar doesn't render the
+signed-out card first and swap it underneath the user. Web only — desktop pairs
+properly and has a real token already.
+
 ## Deep-link format
 
 The desktop registers a system-level handler for the `othcloud-terminal://`

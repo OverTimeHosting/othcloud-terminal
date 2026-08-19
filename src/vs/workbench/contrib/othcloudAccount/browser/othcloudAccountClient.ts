@@ -11,7 +11,37 @@ import { IOthcloudUser } from '../common/othcloudAccountService.js';
 // hit the local Next.js dev server; packaged builds talk to production.
 const OTHCLOUD_DEV_BASE_URL = 'http://localhost:3001';
 const OTHCLOUD_PROD_BASE_URL = 'https://othcloud.xyz';
-export const OTHCLOUD_BASE_URL = env['VSCODE_DEV'] ? OTHCLOUD_DEV_BASE_URL : OTHCLOUD_PROD_BASE_URL;
+
+/**
+ * Where othcloud.xyz is, as far as this window is concerned.
+ *
+ * A guess, and only a guess, until something better-informed overrides it.
+ * `env` is empty in the WEB build (`base/common/process` hardcodes `{}` there),
+ * so the `VSCODE_DEV` check can only ever land on production — which is the
+ * wrong answer for every panel that is not literally othcloud.xyz, including
+ * the localhost one this is developed against.
+ *
+ * The web build gets the right value from the panel: it is served from the
+ * panel's own origin, so it is told to use relative URLs and the browser
+ * resolves them to whatever host the customer actually reached. See
+ * {@link setOthcloudBaseUrl}.
+ */
+let othcloudBaseUrl = env['VSCODE_DEV'] ? OTHCLOUD_DEV_BASE_URL : OTHCLOUD_PROD_BASE_URL;
+
+/**
+ * Point the client at a different othcloud.xyz.
+ *
+ * The empty string is meaningful and is what the web editor passes: it makes
+ * every request relative, i.e. same-origin with the workbench, which is the
+ * panel serving it.
+ */
+export function setOthcloudBaseUrl(baseUrl: string): void {
+	othcloudBaseUrl = baseUrl;
+}
+
+export function getOthcloudBaseUrl(): string {
+	return othcloudBaseUrl;
+}
 
 export interface IPairTokenResponse {
 	readonly token: string;
@@ -25,7 +55,7 @@ export interface IOthcloudServiceRow {
 	readonly meta?: Readonly<Record<string, string>>;
 	/**
 	 * Relative path on othcloud.xyz that the desktop sidebar opens when this
-	 * row is clicked. The desktop prefixes {@link OTHCLOUD_BASE_URL}. May be
+	 * row is clicked. The desktop prefixes {@link getOthcloudBaseUrl}. May be
 	 * undefined for rows that have no dedicated management page yet.
 	 */
 	readonly url?: string;
@@ -45,7 +75,7 @@ export class OthcloudAccountApiError extends Error {
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-	const res = await fetch(`${OTHCLOUD_BASE_URL}${path}`, {
+	const res = await fetch(`${getOthcloudBaseUrl()}${path}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body),
@@ -62,7 +92,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function getJson<T>(path: string, token: string): Promise<T> {
-	const res = await fetch(`${OTHCLOUD_BASE_URL}${path}`, {
+	const res = await fetch(`${getOthcloudBaseUrl()}${path}`, {
 		headers: { 'Authorization': `Bearer ${token}` },
 	});
 	const text = await res.text();
