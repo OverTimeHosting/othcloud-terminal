@@ -6,7 +6,11 @@
 import * as cp from 'child_process';
 import * as path from 'path';
 
-const root = path.dirname(import.meta.dirname);
+// `import.meta.dirname` is <repo>/build/lib, so the repo root is two levels up.
+// Everything below is written relative to the repo root: the spawns use it as
+// their cwd (tsgo resolves `src/tsconfig.json` against it) and join
+// `build/next/index.ts` onto it.
+const root = path.dirname(path.dirname(import.meta.dirname));
 
 export type EsbuildBundleTarget = 'desktop' | 'server' | 'server-web';
 

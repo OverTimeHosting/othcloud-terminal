@@ -280,7 +280,7 @@ export class LinuxUpdateService extends AbstractUpdateService {
 		// unpacked by hand, or a build running out of a source tree.
 		try {
 			await this.spawnAndWait(dpkg, ['-S', process.execPath]);
-		} catch (err) {
+		} catch {
 			this.logService.info('update#resolvePackageInstaller - not a dpkg-managed install, in-app updates unavailable');
 			return undefined;
 		}
@@ -368,7 +368,7 @@ export class LinuxUpdateService extends AbstractUpdateService {
 		let entries: string[];
 		try {
 			entries = await pfs.Promises.readdir(cachePath);
-		} catch (err) {
+		} catch {
 			return;
 		}
 
@@ -377,7 +377,7 @@ export class LinuxUpdateService extends AbstractUpdateService {
 			.map(async entry => {
 				try {
 					await unlink(path.join(cachePath, entry));
-				} catch (err) {
+				} catch {
 					// ignore
 				}
 			}));

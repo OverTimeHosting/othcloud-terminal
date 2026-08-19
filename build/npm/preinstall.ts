@@ -60,7 +60,11 @@ if (process.arch !== os.arch()) {
 function hasSupportedVisualStudioVersion() {
 	// Translated over from
 	// https://source.chromium.org/chromium/chromium/src/+/master:build/vs_toolchain.py;l=140-175
-	const supportedVersions = ['2022', '2019'];
+	// Visual Studio 2026 dropped the year from its install directory in favour of
+	// the major version ("...\Microsoft Visual Studio\18"), so both layouts are
+	// probed. Without '18' this check fails outright on the current
+	// windows-latest image, which ships no year-named Visual Studio at all.
+	const supportedVersions = ['18', '2022', '2019'];
 
 	const availableVersions = [];
 	for (const version of supportedVersions) {
