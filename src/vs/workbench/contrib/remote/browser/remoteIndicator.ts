@@ -555,7 +555,12 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 			}
 		}
 
-		this.renderRemoteStatusIndicator(RemoteStatusIndicator.DEFAULT_REMOTE_STATUS_LABEL, nls.localize('noHost.tooltip', "Open a Remote Window"));
+		// othcloud: when no remote or virtual workspace is in use there is nothing to
+		// indicate, so drop the idle "Open a Remote Window" entry instead of parking a
+		// permanent button in the status bar. The indicator is still rendered by the
+		// branches above whenever a remote connection actually exists.
+		this.remoteStatusEntry?.dispose();
+		this.remoteStatusEntry = undefined;
 		return;
 	}
 
